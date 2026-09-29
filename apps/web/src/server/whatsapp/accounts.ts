@@ -139,6 +139,15 @@ export function accountReply(
           "Create your Sharebloom account first to use phone-number settings. Type Menu to begin.",
         );
   }
+  // Sharebloom has no testnet. Steward's Demo USD handlers remain in the code but must not
+  // answer typed messages, or users would see Robinhood testnet wording.
+  if (
+    !/^[a-z]+:/.test(message.input) &&
+    /\b(?:testnet|demo\s*usd|dusd|46630)\b/i.test(message.input)
+  )
+    return text(
+      "Sharebloom runs only on BNB Chain mainnet with real USDT. There is no testnet or Demo USD. Type Menu to see what you can do.",
+    );
   // Ordinary chat language reaches intent inference first. Button payloads keep
   // their deterministic handlers and cannot authorize actions through the model.
   if (
