@@ -18,7 +18,7 @@ import {
   validateMainnetPlan,
   type MainnetPlan,
 } from "../src/server/stocks/mainnet-trade";
-import { MAINNET_ASSETS, MAINNET_USDG } from "../src/server/networks/robinhood";
+import { MAINNET_ASSETS, MAINNET_QUOTE } from "../src/server/networks/chain";
 import {
   mainnetConfirmationReply,
   migrateMainnetOrders,
@@ -30,7 +30,7 @@ process.env.MAINNET_KYBER_EXECUTOR = executor;
 process.env.MAINNET_KYBER_EXECUTOR_CODEHASH = "0x" + "11".repeat(32);
 process.env.MAINNET_ROUTER_CODEHASH = "0x" + "22".repeat(32);
 process.env.PRIVY_MAINNET_POLICY_ID = "test-policy";
-process.env.MAINNET_MAX_USDG_PER_TRADE = "10";
+process.env.MAINNET_MAX_USDT_PER_TRADE = "10";
 process.env.MAINNET_MAX_FEE_WEI = "1000000000000000";
 function plan(): MainnetPlan {
   const id = "11111111-1111-4111-8111-111111111111",
@@ -43,8 +43,8 @@ function plan(): MainnetPlan {
     router: KYBER_ROUTER,
     symbol: "TSLA",
     side: "buy",
-    inputToken: MAINNET_USDG.address,
-    outputToken: MAINNET_ASSETS.TSLA.address,
+    inputToken: MAINNET_QUOTE.address,
+    outputToken: MAINNET_ASSETS.TSLA.variants[0].address,
     amountIn: "1000000",
     expectedOutput: "10000000000000000",
     minimumOutput: "9900000000000000",
@@ -52,7 +52,7 @@ function plan(): MainnetPlan {
     steps: [
       {
         kind: "approve",
-        to: MAINNET_USDG.address,
+        to: MAINNET_QUOTE.address,
         data: encodeFunctionData({
           abi: erc20Abi,
           functionName: "approve",
@@ -81,8 +81,8 @@ function plan(): MainnetPlan {
                 },
               ]),
               desc: {
-                srcToken: MAINNET_USDG.address,
-                dstToken: MAINNET_ASSETS.TSLA.address,
+                srcToken: MAINNET_QUOTE.address,
+                dstToken: MAINNET_ASSETS.TSLA.variants[0].address,
                 srcReceivers: [],
                 srcAmounts: [],
                 feeReceivers: [],
@@ -111,7 +111,7 @@ test("rejects recipient, pair, amount, minimum, order and fee mutations", () => 
       p.wallet = executor;
     },
     (p) => {
-      p.outputToken = MAINNET_USDG.address;
+      p.outputToken = MAINNET_QUOTE.address;
     },
     (p) => {
       p.amountIn = "11000000";

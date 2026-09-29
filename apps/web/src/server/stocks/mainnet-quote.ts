@@ -1,8 +1,23 @@
 import { z } from "zod";
-import type { Hex } from "viem";
+import type { Address, Hex } from "viem";
 import { fetchMainnetRoute, TemporaryKyberError } from "./kyber-route";
+import { KYBER_CHAIN_SLUG } from "../networks/chain";
 import { KYBER_ROUTER, requireTrade, sameAddress } from "./mainnet-trade";
-import { prepareLifiQuote, type PreparedMainnetQuote, type QuoteInput } from "./lifi-route";
+export type PreparedMainnetQuote = {
+  provider: "kyber";
+  router: Address;
+  data: Hex;
+  expectedOutput: string;
+  minimumOutput: string;
+  swapGas: string;
+  deadline: number;
+};
+export type QuoteInput = {
+  wallet: Address;
+  inputToken: Address;
+  outputToken: Address;
+  amountIn: string;
+};
 const uint = z.string().regex(/^\d{1,78}$/);
 export async function prepareKyberQuote(p: QuoteInput): Promise<PreparedMainnetQuote> {
   const query = new URLSearchParams({
@@ -42,10 +57,10 @@ export async function prepareKyberQuote(p: QuoteInput): Promise<PreparedMainnetQ
   );
   const deadline = Math.floor(Date.now() / 1000) + 240;
   const buildResponse = await fetch(
-    "https://aggregator-api.kyberswap.com/robinhood/api/v1/route/build",
+    `https://aggregator-api.kyberswap.com/${KYBER_CHAIN_SLUG}/api/v1/route/build`,
     {
       method: "POST",
-      headers: { "content-type": "application/json", "x-client-id": "steward-pay" },
+      headers: { "content-type": "application/json", "x-client-id": "sharebloom" },
       body: JSON.stringify({
         routeSummary: route.routeSummary,
         sender: p.wallet,
@@ -53,7 +68,7 @@ export async function prepareKyberQuote(p: QuoteInput): Promise<PreparedMainnetQ
         origin: p.wallet,
         deadline,
         slippageTolerance: 100,
-        source: "steward-pay",
+        source: "sharebloom",
         enableGasEstimation: false,
       }),
       signal: AbortSignal.timeout(12000),
@@ -102,17 +117,6 @@ export async function prepareKyberQuote(p: QuoteInput): Promise<PreparedMainnetQ
     deadline,
   };
 }
-// Fallback is available only while creating a new review. Never called by the runner.
-export async function prepareMainnetQuote(p: QuoteInput): Promise<PreparedMainnetQuote> {
-  try {
-    return await prepareKyberQuote(p);
-  } catch (error) {
-    if (
-      !(error instanceof TemporaryKyberError) ||
-      process.env.MAINNET_LIFI_FALLBACK_ENABLED !== "true"
-    )
-      throw error;
-    console.warn("Kyber quote temporarily unavailable; requesting LI.FI fallback");
-    return prepareLifiQuote(p);
-  }
-}
+// KyberSwap is the only execution provider on BNB Chain; its route covers bStocks, Ondo
+// and xStocks pools. The caller (prepareMainnetPlan) chooses which variant to request.
+export const prepareMainnetQuote = prepareKyberQuote;

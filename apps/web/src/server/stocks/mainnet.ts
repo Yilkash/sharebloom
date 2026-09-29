@@ -4,17 +4,22 @@ import {
   formatUnits,
   http,
   isAddress,
-  parseAbi,
   parseUnits,
   type Address,
 } from "viem";
 import { z } from "zod";
 import {
   MAINNET_ASSETS,
-  MAINNET_USDG,
-  robinhoodMainnet,
+  MAINNET_CHAIN_ID,
+  MAINNET_QUOTE,
+  MAINNET_STOCK_TOKENS,
+  mainnetChain,
   type MainnetStock,
-} from "../networks/robinhood";
+  type StockVariant,
+} from "../networks/chain";
+import { rwaTokenList, rwaTokenQuote } from "./binance-rwa";
+import { fetchMainnetRoute } from "./kyber-route";
+import { pickBestVariant, type VariantEvaluation } from "./stock-routing";
 
 export class MainnetReadError extends Error {
   constructor(
@@ -27,6 +32,7 @@ export class MainnetReadError extends Error {
       | "quote_busy"
       | "token_not_authorized"
       | "no_liquidity"
+      | "no_fair_price"
       | "invalid_amount"
       | "invalid_response",
   ) {
@@ -34,26 +40,16 @@ export class MainnetReadError extends Error {
   }
 }
 const client = createPublicClient({
-  chain: robinhoodMainnet,
-  transport: http(robinhoodMainnet.rpcUrls.default.http[0], {
+  chain: mainnetChain,
+  transport: http(mainnetChain.rpcUrls.default.http[0], {
     timeout: 10000,
     retryCount: 1,
     retryDelay: 300,
   }),
 });
-const multiplierAbi = parseAbi(["function uiMultiplier() view returns (uint256)"]);
-const registrySchema = z.object({
-  assets: z.array(
-    z.object({
-      tokenSymbol: z.string(),
-      status: z.string(),
-      tokenDecimals: z.number(),
-      deployments: z.array(z.object({ chainId: z.number(), contractAddress: z.string() })),
-    }),
-  ),
-});
 
 let registryPending: Promise<typeof MAINNET_ASSETS> | undefined;
+/** Every configured stock variant must be listed by Binance on chain 56 with the same address and decimals. */
 export function verifiedMainnetRegistry() {
   if (!registryPending)
     registryPending = readMainnetRegistry().finally(() => {
@@ -62,31 +58,23 @@ export function verifiedMainnetRegistry() {
   return registryPending;
 }
 async function readMainnetRegistry() {
-  let body: unknown;
+  let rows;
   try {
-    const response = await fetch("https://api.robinhood.com/rhj/assets", {
-      signal: AbortSignal.timeout(10000),
-      redirect: "error",
-      cache: "no-store",
-    });
-    if (!response.ok) throw Error("registry_http");
-    body = await response.json();
+    rows = await rwaTokenList();
   } catch {
     throw new MainnetReadError("registry_unavailable");
   }
-  const parsed = registrySchema.safeParse(body);
-  if (!parsed.success) throw new MainnetReadError("registry_unavailable");
-  for (const [symbol, expected] of Object.entries(MAINNET_ASSETS)) {
-    const rows = parsed.data.assets.filter((asset) => asset.tokenSymbol === symbol);
-    const deployments = rows.flatMap((asset) =>
-      asset.deployments.filter((d) => d.chainId === 4663),
+  for (const token of MAINNET_STOCK_TOKENS) {
+    const matches = rows.filter(
+      (r) =>
+        r.chainId === String(MAINNET_CHAIN_ID) &&
+        r.contractAddress.toLowerCase() === token.address.toLowerCase(),
     );
     if (
-      rows.length !== 1 ||
-      rows[0].status !== "ASSET_STATUS_ACTIVE" ||
-      rows[0].tokenDecimals !== expected.decimals ||
-      deployments.length !== 1 ||
-      deployments[0].contractAddress.toLowerCase() !== expected.address.toLowerCase()
+      matches.length !== 1 ||
+      matches[0].ticker !== token.ticker ||
+      matches[0].symbol !== token.symbol ||
+      matches[0].d !== token.decimals
     )
       throw new MainnetReadError("registry_changed");
   }
@@ -104,7 +92,7 @@ async function readMainnetSnapshot() {
   try {
     const [chainId, block] = await Promise.all([client.getChainId(), client.getBlock()]);
     const age = Date.now() - Number(block.timestamp) * 1000;
-    if (chainId !== 4663 || age > 120000 || age < -30000) throw Error("stale_mainnet");
+    if (chainId !== MAINNET_CHAIN_ID || age > 120000 || age < -30000) throw Error("stale_mainnet");
     return block;
   } catch {
     throw new MainnetReadError("rpc_unavailable");
@@ -115,12 +103,12 @@ export async function mainnetPortfolio(wallet: Address) {
   await verifiedMainnetRegistry();
   const block = await mainnetSnapshot();
   const tokens = [
-    ...Object.entries(MAINNET_ASSETS).map(([symbol, asset]) => ({ symbol, ...asset })),
-    MAINNET_USDG,
+    ...MAINNET_STOCK_TOKENS,
+    { ticker: undefined, issuer: undefined, ...MAINNET_QUOTE },
   ];
   const balances = await Promise.all(
     tokens.map(async (token) => {
-      const [code, decimals, symbol, balance, multiplier] = await Promise.all([
+      const [code, decimals, symbol, balance] = await Promise.all([
         client.getCode({ address: token.address, blockNumber: block.number }),
         client.readContract({
           address: token.address,
@@ -141,38 +129,25 @@ export async function mainnetPortfolio(wallet: Address) {
           args: [wallet],
           blockNumber: block.number,
         }),
-        token.symbol === "USDG"
-          ? Promise.resolve(10n ** 18n)
-          : client.readContract({
-              address: token.address,
-              abi: multiplierAbi,
-              functionName: "uiMultiplier",
-              blockNumber: block.number,
-            }),
       ]);
-      if (
-        !code ||
-        code === "0x" ||
-        decimals !== token.decimals ||
-        symbol !== token.symbol ||
-        multiplier <= 0n
-      )
+      if (!code || code === "0x" || decimals !== token.decimals || symbol !== token.symbol)
         throw new MainnetReadError("registry_changed");
       return {
         symbol,
+        ticker: token.ticker,
+        issuer: token.issuer,
         address: token.address,
         decimals,
         balance,
-        multiplier,
         formatted: formatUnits(balance, decimals),
       };
     }),
   );
-  const eth = await client.getBalance({ address: wallet, blockNumber: block.number });
-  return { chainId: 4663 as const, wallet, block, balances, eth };
+  const native = await client.getBalance({ address: wallet, blockNumber: block.number });
+  return { chainId: MAINNET_CHAIN_ID, wallet, block, balances, native };
 }
 const integer = z.string().regex(/^\d{1,78}$/);
-const priceSchema = z.object({
+const routeSchema = z.object({
   code: z.literal(0),
   data: z.object({
     routeSummary: z.object({
@@ -181,86 +156,87 @@ const priceSchema = z.object({
       amountIn: integer,
       amountOut: integer,
       timestamp: z.number().int().positive(),
-      gasUsd: z
-        .string()
-        .regex(/^\d{1,12}(?:\.\d{1,30})?$/)
-        .optional(),
     }),
   }),
 });
-// Indicative price only. Never accept or expose API-provided signing calldata.
-// No wallet/taker address is sent to the provider for this preview.
-export async function mainnetPrice(symbol: MainnetStock, side: "buy" | "sell", amount: string) {
-  try {
-    return await readMainnetPrice(symbol, side, amount);
-  } catch (error) {
-    if (
-      !(error instanceof MainnetReadError) ||
-      !["quote_unavailable", "quote_busy", "registry_unavailable"].includes(error.code)
-    )
-      throw error;
-    await new Promise((resolve) => setTimeout(resolve, 600));
-    return readMainnetPrice(symbol, side, amount);
-  }
-}
-async function readMainnetPrice(symbol: MainnetStock, side: "buy" | "sell", amount: string) {
-  const stock = MAINNET_ASSETS[symbol];
-  const sell = side === "buy" ? MAINNET_USDG : stock;
-  const buy = side === "buy" ? stock : MAINNET_USDG;
-  if (!new RegExp(`^(?:0|[1-9]\\d{0,3})(?:\\.\\d{1,${sell.decimals}})?$`).test(amount))
-    throw new MainnetReadError("invalid_amount");
-  const sellAmount = parseUnits(amount, sell.decimals);
-  if (sellAmount <= 0n || sellAmount > parseUnits("1000", sell.decimals))
-    throw new MainnetReadError("invalid_amount");
-  await verifiedMainnetRegistry();
-  const block = await mainnetSnapshot();
-  const url = new URL("https://aggregator-api.kyberswap.com/robinhood/api/v1/routes");
-  url.search = new URLSearchParams({
-    tokenIn: sell.address,
-    tokenOut: buy.address,
-    amountIn: sellAmount.toString(),
-  }).toString();
+/** Read-only Kyber route for one token pair; no wallet or calldata involved. */
+export async function previewRoute(tokenIn: Address, tokenOut: Address, amountIn: bigint) {
   let body: unknown;
   try {
-    const response = await fetch(url, {
-      signal: AbortSignal.timeout(12000),
-      redirect: "error",
-      cache: "no-store",
-    });
-    if (response.status === 429 || response.status === 503)
-      throw new MainnetReadError("quote_busy");
-    if (!response.ok) throw new MainnetReadError("quote_unavailable");
+    const response = await fetchMainnetRoute(
+      new URLSearchParams({ tokenIn, tokenOut, amountIn: amountIn.toString() }),
+    );
     body = await response.json();
   } catch (error) {
-    if (error instanceof MainnetReadError) throw error;
-    throw new MainnetReadError("quote_unavailable");
+    const message = error instanceof Error ? error.message : "";
+    throw new MainnetReadError(message === "route_busy" ? "quote_busy" : "quote_unavailable");
   }
-  const parsed = priceSchema.safeParse(body);
+  const parsed = routeSchema.safeParse(body);
   if (!parsed.success) throw new MainnetReadError("invalid_response");
-  const price = parsed.data.data.routeSummary;
-  // Kyber's timestamp is provider-reported, not proof of a particular chain block.
-  // A separate fresh RPC snapshot above confirms network availability.
-  const age = Date.now() - price.timestamp * 1000;
+  const route = parsed.data.data.routeSummary;
+  const age = Date.now() - route.timestamp * 1000;
   if (
     age > 120000 ||
     age < -30000 ||
-    price.tokenIn.toLowerCase() !== sell.address.toLowerCase() ||
-    price.tokenOut.toLowerCase() !== buy.address.toLowerCase() ||
-    BigInt(price.amountIn) !== sellAmount
+    route.tokenIn.toLowerCase() !== tokenIn.toLowerCase() ||
+    route.tokenOut.toLowerCase() !== tokenOut.toLowerCase() ||
+    BigInt(route.amountIn) !== amountIn
   )
     throw new MainnetReadError("invalid_response");
-  if (BigInt(price.amountOut) <= 0n) throw new MainnetReadError("no_liquidity");
-  return {
-    chainId: 4663 as const,
+  if (BigInt(route.amountOut) <= 0n) throw new MainnetReadError("no_liquidity");
+  return { amountOut: BigInt(route.amountOut), timestamp: route.timestamp };
+}
+/**
+ * Pick the fairest issuer for a ticker using read-only routes. Buys compare all variants;
+ * sells compare the given candidates (the variants the wallet holds, or all for a preview).
+ */
+export async function bestMainnetVariant(
+  symbol: MainnetStock,
+  side: "buy" | "sell",
+  amountIn: bigint,
+  candidates: readonly StockVariant[] = MAINNET_ASSETS[symbol].variants,
+) {
+  return pickBestVariant(
     symbol,
     side,
+    candidates,
+    async (v) => {
+      const [tokenIn, tokenOut] =
+        side === "buy" ? [MAINNET_QUOTE.address, v.address] : [v.address, MAINNET_QUOTE.address];
+      const route = await previewRoute(tokenIn, tokenOut, amountIn);
+      return { amountIn, amountOut: route.amountOut };
+    },
+    (v) => rwaTokenQuote(v.address),
+  );
+}
+// Indicative price only. Never accept or expose API-provided signing calldata.
+export async function mainnetPrice(symbol: MainnetStock, side: "buy" | "sell", amount: string) {
+  const sellDecimals = side === "buy" ? MAINNET_QUOTE.decimals : 18;
+  if (!/^(?:0|[1-9]\d{0,3})(?:\.\d{1,18})?$/.test(amount))
+    throw new MainnetReadError("invalid_amount");
+  const sellAmount = parseUnits(amount, sellDecimals);
+  if (sellAmount <= 0n || sellAmount > parseUnits("1000", sellDecimals))
+    throw new MainnetReadError("invalid_amount");
+  await verifiedMainnetRegistry();
+  const block = await mainnetSnapshot();
+  const { chosen, evaluations } = await bestMainnetVariant(symbol, side, sellAmount);
+  if (!chosen) {
+    const anyRoute = evaluations.some((e: VariantEvaluation) => e.outcome === "unfair_price");
+    throw new MainnetReadError(anyRoute ? "no_fair_price" : "no_liquidity");
+  }
+  return {
+    chainId: MAINNET_CHAIN_ID,
+    symbol,
+    side,
+    variant: chosen,
+    evaluations,
     sellAmount,
-    buyAmount: BigInt(price.amountOut),
-    sellDecimals: sell.decimals,
-    buyDecimals: buy.decimals,
+    buyAmount: chosen.quote.amountOut,
+    sellDecimals,
+    buyDecimals: side === "buy" ? 18 : MAINNET_QUOTE.decimals,
     blockNumber: block.number,
-    timestamp: BigInt(price.timestamp),
-    networkFeeUsd: price.gasUsd ?? null,
+    timestamp: BigInt(Math.floor(Date.now() / 1000)),
+    networkFeeUsd: null,
     provider: "KyberSwap" as const,
     executionEnabled: false as const,
   };

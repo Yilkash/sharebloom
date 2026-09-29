@@ -7,7 +7,7 @@ import { normalizePhone } from "./phone-recipients";
 import { mainnetTradeReviewReply, mainnetTradeStatusReply } from "../stocks/mainnet-orders";
 import { ensureMainnetWallet } from "../stocks/mainnet-wallet";
 import { mainnetReceiveReply, mainnetPortfolioReply } from "./mainnet-stocks";
-import { MAINNET_USDG } from "../networks/robinhood";
+import { MAINNET_QUOTE } from "../networks/chain";
 
 type Draft = { recipient?: string; amount?: string };
 export function migrateMainnetPayments(db: DatabaseSync) {
@@ -94,7 +94,7 @@ export async function mainnetPaymentReview(
   if (
     !address ||
     !isAddress(address) ||
-    [zeroAddress, MAINNET_USDG.address].some((a) => a.toLowerCase() === address!.toLowerCase())
+    [zeroAddress, MAINNET_QUOTE.address].some((a) => a.toLowerCase() === address!.toLowerCase())
   ) {
     db.prepare("DELETE FROM wa_mainnet_payment_drafts WHERE account_id=?").run(account);
     return text(

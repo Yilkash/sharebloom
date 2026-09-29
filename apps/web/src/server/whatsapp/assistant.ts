@@ -1,4 +1,4 @@
-import { MAINNET_STOCK_SYMBOLS } from "../networks/robinhood";
+import { MAINNET_STOCK_SYMBOLS } from "../networks/chain";
 import { createHash, randomBytes } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
 import { z } from "zod";

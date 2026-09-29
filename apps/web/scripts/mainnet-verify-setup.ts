@@ -1,9 +1,8 @@
-import { lifiPolicyRule } from "../src/server/stocks/mainnet-policy";
-import { readFileSync } from "node:fs";
+import { mainnetPolicyRules } from "../src/server/stocks/mainnet-policy";
 import { PrivyClient } from "@privy-io/node";
 import { whatsappConfig } from "../src/server/whatsapp/config";
 import { WhatsAppStore } from "../src/server/whatsapp/store";
-import { MAINNET_EXECUTION_READY } from "../src/server/networks/robinhood";
+import { MAINNET_EXECUTION_READY } from "../src/server/networks/chain";
 import { type MainnetWallet } from "../src/server/stocks/mainnet-orders";
 
 // Read-only provider verification. Never creates resources, signs or broadcasts.
@@ -37,7 +36,7 @@ async function main() {
       timeout: 15000,
       logLevel: "off",
     });
-    const draft = JSON.parse(readFileSync("../../docs/privy-mainnet-policy.json", "utf8"));
+    const draft = { rules: mainnetPolicyRules() };
     const ruleKeys = (rules: { action: string; method: string; conditions: unknown[] }[]) =>
       rules
         .map((r) =>
@@ -72,14 +71,7 @@ async function main() {
         policy.owner_id !== local.owner_id ||
         policy.chain_type !== "ethereum" ||
         policy.version !== "1.0" ||
-        canonical(ruleKeys(policy.rules)) !==
-          canonical(
-            ruleKeys(
-              policy.rules.length === draft.rules.length + 1
-                ? [...draft.rules, lifiPolicyRule]
-                : draft.rules,
-            ),
-          )
+        canonical(ruleKeys(policy.rules)) !== canonical(ruleKeys(draft.rules))
       )
         throw Error("Provider policy differs from prepared rules or ABI");
       console.log(

@@ -7,7 +7,7 @@ import { mainnetPaymentReview } from "./mainnet-payments";
 import { mainnetWallet } from "../stocks/mainnet-orders";
 import { mainnetRpc } from "../stocks/mainnet-trade";
 import { erc20Abi, formatEther } from "viem";
-import { MAINNET_USDG } from "../networks/robinhood";
+import { MAINNET_QUOTE } from "../networks/chain";
 import { mainnetTradeReviewReply, mainnetTradeStatusReply } from "../stocks/mainnet-orders";
 import { normalizePhone } from "./phone-recipients";
 import type { DatabaseSync } from "node:sqlite";
@@ -26,7 +26,7 @@ import {
   MAINNET_STOCK_SYMBOLS,
   mainnetStockChoices,
   type MainnetStock,
-} from "../networks/robinhood";
+} from "../networks/chain";
 import {
   mainnetStockListReply,
   mainnetPortfolioReply,
@@ -609,7 +609,7 @@ export async function runAssistantTool(
     if (!wallet) return text("Ask for your receiving address to set up your mainnet wallet.");
     const [balance, eth] = await Promise.all([
       mainnetRpc.readContract({
-        address: MAINNET_USDG.address,
+        address: MAINNET_QUOTE.address,
         abi: erc20Abi,
         functionName: "balanceOf",
         args: [wallet.address as `0x${string}`],

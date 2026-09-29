@@ -64,7 +64,7 @@ for (const status of [429, 502, 503, 504]) {
     mock.method(globalThis, "fetch", async (url: string, init?: RequestInit) => {
       assert.match(
         String(url),
-        /^https:\/\/aggregator-api\.kyberswap\.com\/robinhood\/api\/v1\/routes\?/,
+        /^https:\/\/aggregator-api\.kyberswap\.com\/bsc\/api\/v1\/routes\?/,
       );
       assert.ok(!init?.method || init.method === "GET");
       calls++;

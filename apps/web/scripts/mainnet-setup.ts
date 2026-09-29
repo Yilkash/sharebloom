@@ -6,79 +6,25 @@ import { mainnetWallet } from "../src/server/stocks/mainnet-orders";
 import {
   checkMainnetRouter,
   mainnetRpc,
-  KYBER_ROUTER,
-  mainnetRouterAbi,
   requireTrade as ensure,
 } from "../src/server/stocks/mainnet-trade";
+import { mainnetPolicyRules } from "../src/server/stocks/mainnet-policy";
 import {
-  MAINNET_ASSETS,
-  MAINNET_USDG,
+  MAINNET_CHAIN_ID,
+  MAINNET_QUOTE,
   MAINNET_EXECUTION_READY,
-} from "../src/server/networks/robinhood";
+} from "../src/server/networks/chain";
 
 async function main() {
   if (process.argv.includes("--policy-template")) {
-    const conditions = (to: string, fn: string, abi: unknown) => [
-      { field_source: "ethereum_transaction", field: "chain_id", operator: "eq", value: "4663" },
-      { field_source: "ethereum_transaction", field: "to", operator: "eq", value: to },
-      { field_source: "ethereum_transaction", field: "value", operator: "eq", value: "0x0" },
-      {
-        field_source: "ethereum_calldata",
-        field: "function_name",
-        operator: "eq",
-        value: fn,
-        abi,
-      },
-    ];
-    const approveAbi = [
-      {
-        type: "function",
-        name: "approve",
-        stateMutability: "nonpayable",
-        inputs: [
-          { name: "spender", type: "address" },
-          { name: "amount", type: "uint256" },
-        ],
-        outputs: [{ name: "", type: "bool" }],
-      },
-    ];
+    // Generated from the configured token list; see src/server/stocks/mainnet-policy.ts.
     console.log(
       JSON.stringify(
         {
-          name: "Steward mainnet stock trades",
+          name: "Sharebloom BNB Chain trades",
           version: "1.0",
           chain_type: "ethereum",
-          rules: [
-            ...[MAINNET_USDG, ...Object.values(MAINNET_ASSETS)].map((a) => ({
-              name: `Approve ${a.address}`,
-              method: "eth_sendTransaction",
-              action: "ALLOW",
-              conditions: conditions(a.address, "approve", approveAbi),
-            })),
-            {
-              name: "Send mainnet USDG",
-              method: "eth_sendTransaction",
-              action: "ALLOW",
-              conditions: conditions(MAINNET_USDG.address, "transfer", [
-                {
-                  type: "function",
-                  name: "transfer",
-                  stateMutability: "nonpayable",
-                  inputs: [
-                    { name: "to", type: "address" },
-                    { name: "amount", type: "uint256" },
-                  ],
-                  outputs: [{ name: "", type: "bool" }],
-                },
-              ]),
-            },
-            {
-              name: "KyberSwap stock swap",
-              method: "eth_sendTransaction",
-              action: "ALLOW",
-              conditions: conditions(KYBER_ROUTER, "swap", mainnetRouterAbi),
-            },
-          ],
+          rules: mainnetPolicyRules(),
         },
         null,
         2,
@@ -103,7 +49,7 @@ async function main() {
       "MAINNET_KYBER_EXECUTOR_CODEHASH",
       "MAINNET_ROUTER_CODEHASH",
       "PRIVY_MAINNET_POLICY_ID",
-      "MAINNET_MAX_USDG_PER_TRADE",
+      "MAINNET_MAX_USDT_PER_TRADE",
     ];
     console.log(
       "Configuration:",
@@ -116,7 +62,7 @@ async function main() {
     console.log("Execution validation complete:", MAINNET_EXECUTION_READY);
     console.log(
       "Gas payment:",
-      "Fees estimated automatically per review; wallet pays ETH. Sponsorship is off.",
+      "Fees estimated automatically per review; wallet pays BNB. Sponsorship is off.",
     );
     console.log(
       "Dedicated mainnet wallet:",
@@ -149,7 +95,7 @@ async function main() {
     const [eth, usdg] = await Promise.all([
       mainnetRpc.getBalance({ address }),
       mainnetRpc.readContract({
-        address: MAINNET_USDG.address,
+        address: MAINNET_QUOTE.address,
         abi: erc20Abi,
         functionName: "balanceOf",
         args: [address],
@@ -157,9 +103,9 @@ async function main() {
     ]);
     console.log({
       wallet: address,
-      chain: 4663,
-      ETH: formatEther(eth),
-      USDG: formatUnits(usdg, 6),
+      chain: MAINNET_CHAIN_ID,
+      BNB: formatEther(eth),
+      USDT: formatUnits(usdg, MAINNET_QUOTE.decimals),
     });
     console.log("No trade or funding transaction submitted.");
   } finally {

@@ -12,7 +12,14 @@ import {
   formatEther,
   type Hex,
 } from "viem";
-import { MAINNET_USDG, MAINNET_EXECUTION_READY } from "../networks/robinhood";
+import {
+  MAINNET_CAIP2,
+  MAINNET_CHAIN_ID,
+  MAINNET_EXECUTION_READY,
+  MAINNET_EXPLORER_TX,
+  MAINNET_NATIVE_SYMBOL,
+  MAINNET_QUOTE,
+} from "../networks/chain";
 import { seal, unseal, senderKeyAccess } from "../whatsapp/config";
 import { text } from "../whatsapp/menu";
 import {
@@ -20,7 +27,6 @@ import {
   requireTrade as ensure,
   sameAddress as same,
   checkMainnetRouter,
-  checkLifiRouter,
   validateMainnetPlan,
   executionGasLimit,
   broadcastGasPrice,
@@ -137,7 +143,6 @@ export async function processMainnetTrade(
       ensure(walletStillMatches(db, review));
       validateMainnetPlan(p);
       await checkMainnetRouter();
-      if (p.provider === "lifi") await checkLifiRouter();
       const privy = sdk(),
         wallet = await privy.wallets().get(review.wallet.provider_id);
       ensure(
@@ -154,11 +159,7 @@ export async function processMainnetTrade(
           policy.version === "1.0",
       );
       // A sell also needs the approve rule for its stock (added stocks gain it at rollout).
-      validateMainnetPolicyRules(
-        policy.rules,
-        p.provider === "lifi",
-        p.side === "send" ? undefined : p.inputToken,
-      );
+      validateMainnetPolicyRules(policy.rules, p.side === "send" ? undefined : p.inputToken);
       if (planned.kind === "trade") {
         const [allowance, balance] = await Promise.all([
           rpc.readContract({
@@ -233,14 +234,14 @@ export async function processMainnetTrade(
         .wallets()
         .ethereum()
         .sendTransaction(review.wallet.provider_id, {
-          caip2: "eip155:4663",
+          caip2: MAINNET_CAIP2,
           sponsor: false,
           reference_id: step.reference_id,
           idempotency_key: step.idempotency_key,
           request_expiry: Math.min(Date.now() + 60000, order.expires),
           params: {
             transaction: {
-              chain_id: 4663,
+              chain_id: MAINNET_CHAIN_ID,
               to: planned.to,
               value: "0x0",
               data: planned.data,
@@ -329,7 +330,7 @@ export async function processMainnetTrade(
       ensure(
         tx.wallet_id === review.wallet.provider_id &&
           tx.reference_id === step.reference_id &&
-          tx.caip2 === "eip155:4663" &&
+          tx.caip2 === MAINNET_CAIP2 &&
           tx.transaction_hash &&
           /^0x[a-fA-F0-9]{64}$/.test(tx.transaction_hash),
       );
@@ -339,7 +340,7 @@ export async function processMainnetTrade(
       ).run(step.tx_hash, order.id, step.position);
     }
     const hash = step.tx_hash as Hex;
-    ensure((await rpc.getChainId()) === 4663);
+    ensure((await rpc.getChainId()) === MAINNET_CHAIN_ID);
     const [receipt, tx, head] = await Promise.all([
       rpc.getTransactionReceipt({ hash }),
       rpc.getTransaction({ hash }),
@@ -355,7 +356,7 @@ export async function processMainnetTrade(
       same(tx.from, p.wallet) &&
         tx.to &&
         same(tx.to, planned.to) &&
-        tx.chainId === 4663 &&
+        tx.chainId === MAINNET_CHAIN_ID &&
         tx.value === 0n &&
         tx.input === planned.data &&
         tx.nonce === step.nonce,
@@ -368,7 +369,7 @@ export async function processMainnetTrade(
       finish(
         "failed",
         "execution_reverted",
-        `Mainnet transaction stopped: ${planned.kind} reverted. Network fees may be charged; an earlier token approval may remain.\nhttps://robinhoodchain.blockscout.com/tx/${hash}`,
+        `Mainnet transaction stopped: ${planned.kind} reverted. Network fees may be charged; an earlier token approval may remain.\n${MAINNET_EXPLORER_TX}${hash}`,
       );
       return;
     }
@@ -379,7 +380,7 @@ export async function processMainnetTrade(
       const transfers = parseEventLogs({
         abi: erc20Abi,
         eventName: "Transfer",
-        logs: receipt.logs.filter((l) => same(l.address, MAINNET_USDG.address)),
+        logs: receipt.logs.filter((l) => same(l.address, MAINNET_QUOTE.address)),
       });
       ensure(
         p.transferTo &&
@@ -419,8 +420,8 @@ export async function processMainnetTrade(
         notify(
           "confirmed",
           p.side === "send"
-            ? `Payment complete ✅\n${formatUnits(amountOut, 6)} USDG\nTo: ${p.transferTo}\nNetwork fee: ${formatEther(receipt.gasUsed * receipt.effectiveGasPrice)} ETH\nhttps://robinhoodchain.blockscout.com/tx/${hash}`
-            : `Trade complete ✅\n${p.side === "buy" ? "Bought" : "Received"}: ${formatUnits(amountOut, p.side === "buy" ? 18 : 6)} ${p.side === "buy" ? p.symbol : "USDG"}\nSwap network fee: ${formatEther(receipt.gasUsed * receipt.effectiveGasPrice)} ETH (approvals charged separately)\nhttps://robinhoodchain.blockscout.com/tx/${hash}`,
+            ? `Payment complete ✅\n${formatUnits(amountOut, MAINNET_QUOTE.decimals)} ${MAINNET_QUOTE.symbol}\nTo: ${p.transferTo}\nNetwork fee: ${formatEther(receipt.gasUsed * receipt.effectiveGasPrice)} ${MAINNET_NATIVE_SYMBOL}\n${MAINNET_EXPLORER_TX}${hash}`
+            : `Trade complete ✅\n${p.side === "buy" ? "Bought" : "Received"}: ${formatUnits(amountOut, 18)} ${p.side === "buy" ? (p.variant?.symbol ?? p.symbol) : MAINNET_QUOTE.symbol}${p.variant ? ` (${p.variant.issuer})` : ""}\nSwap network fee: ${formatEther(receipt.gasUsed * receipt.effectiveGasPrice)} ${MAINNET_NATIVE_SYMBOL} (approvals charged separately)\n${MAINNET_EXPLORER_TX}${hash}`,
         );
       db.exec("COMMIT");
     } catch (e) {
@@ -448,7 +449,9 @@ export async function processMainnetTrade(
         gas_price_unavailable: "Current network fees could not be checked.",
         gas_estimate_increased: "The network fee would now exceed the maximum you confirmed.",
         wallet_transaction_pending: "Another wallet transaction is still pending.",
-        insufficient_eth_for_network_fee: "The wallet needs more ETH for gas.",
+        insufficient_eth_for_network_fee: `The wallet needs more ${MAINNET_NATIVE_SYMBOL} for gas.`,
+        no_fair_price: "No issuer offered a fair price for this trade right now.",
+        stock_not_trading: "This stock token is not trading right now.",
         wallet_setup_changed: "The wallet setup changed.",
         trade_disabled_or_expired: "The review expired or trading was disabled.",
         stock_not_enabled_for_selling: "Selling this stock is not enabled yet.",

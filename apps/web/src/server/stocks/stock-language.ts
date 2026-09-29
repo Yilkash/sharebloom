@@ -1,4 +1,4 @@
-import { MAINNET_STOCK_SYMBOLS, type MainnetStock } from "../networks/robinhood";
+import { MAINNET_STOCK_SYMBOLS, type MainnetStock } from "../networks/chain";
 
 // Explicit supported aliases only; never fuzzy-match an unknown company for a trade.
 const names: Record<MainnetStock, string[]> = {

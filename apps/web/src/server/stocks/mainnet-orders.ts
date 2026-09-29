@@ -11,7 +11,7 @@ import {
   validateMainnetPlan,
   type MainnetPlan,
 } from "./mainnet-trade";
-import { MAINNET_EXECUTION_READY, type MainnetStock } from "../networks/robinhood";
+import { MAINNET_EXECUTION_READY, type MainnetStock } from "../networks/chain";
 export const orderDigest = (s: string) => createHash("sha256").update(s).digest("hex");
 export type MainnetWallet = {
   account_id: string;

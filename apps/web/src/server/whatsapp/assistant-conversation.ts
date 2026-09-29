@@ -1,4 +1,4 @@
-import { MAINNET_ASSETS, MAINNET_STOCK_SYMBOLS, mainnetStockChoices } from "../networks/robinhood";
+import { MAINNET_ASSETS, MAINNET_STOCK_SYMBOLS, mainnetStockChoices } from "../networks/chain";
 // Fixed capability rules and private-response markers contain no account data.
 const stockList = MAINNET_STOCK_SYMBOLS.map((s) => `${MAINNET_ASSETS[s].name} (${s})`).join(", ");
 const stockNames = mainnetStockChoices().replace(" or ", " and ");

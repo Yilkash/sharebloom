@@ -1,3 +1,5 @@
+import { KYBER_CHAIN_SLUG } from "../networks/chain";
+
 export class TemporaryKyberError extends Error {}
 // GET quote requests only. Never use retries from this module for submission or signing.
 export async function fetchMainnetRoute(query: URLSearchParams): Promise<Response> {
@@ -5,9 +7,9 @@ export async function fetchMainnetRoute(query: URLSearchParams): Promise<Respons
     let response: Response;
     try {
       response = await fetch(
-        `https://aggregator-api.kyberswap.com/robinhood/api/v1/routes?${query}`,
+        `https://aggregator-api.kyberswap.com/${KYBER_CHAIN_SLUG}/api/v1/routes?${query}`,
         {
-          headers: { "x-client-id": "steward-pay" },
+          headers: { "x-client-id": "sharebloom" },
           signal: AbortSignal.timeout(12000),
           redirect: "error",
           cache: "no-store",

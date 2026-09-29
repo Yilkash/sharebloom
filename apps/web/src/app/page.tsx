@@ -11,7 +11,7 @@ import {
   Wallet,
 } from "lucide-react";
 import { publicStats } from "@/server/public-stats";
-import { MAINNET_STOCK_SYMBOLS } from "@/server/networks/robinhood";
+import { MAINNET_STOCK_SYMBOLS } from "@/server/networks/chain";
 import styles from "./landing.module.css";
 
 export const dynamic = "force-dynamic";

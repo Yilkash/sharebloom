@@ -2,7 +2,15 @@ import { ensureMainnetWallet } from "../stocks/mainnet-wallet";
 import { mainnetWallet } from "../stocks/mainnet-orders";
 import type { DatabaseSync } from "node:sqlite";
 import { formatEther, formatUnits, getAddress } from "viem";
-import { MAINNET_ASSETS, MAINNET_EXECUTION_READY, type MainnetStock } from "../networks/robinhood";
+import {
+  MAINNET_ASSETS,
+  MAINNET_CHAIN_ID,
+  MAINNET_EXECUTION_READY,
+  MAINNET_NATIVE_SYMBOL,
+  MAINNET_NETWORK_NAME,
+  MAINNET_QUOTE,
+  type MainnetStock,
+} from "../networks/chain";
 import {
   MainnetReadError,
   mainnetPortfolio,
@@ -39,9 +47,9 @@ export async function mainnetReferencePriceReply(symbol?: MainnetStock, forceRef
         const price = await mainnetReferencePrice(ticker, forceRefresh);
         const status = price.cachedFallback
           ? "; saved price — refresh temporarily unavailable"
-          : Date.now() - price.asOf > price.heartbeatMs
-            ? "; older reference — not a live quote"
-            : "";
+          : price.marketOpen
+            ? ""
+            : "; trading paused for this token";
         return `${MAINNET_ASSETS[ticker].name} (${ticker}): *≈ ${referenceDollars(price.value, price.decimals)} / token*\nUpdated ${priceAge(price.asOf)}${status}`;
       } catch (error) {
         const code = error instanceof ReferencePriceError ? error.code : "source_unavailable";
@@ -49,13 +57,11 @@ export async function mainnetReferencePriceReply(symbol?: MainnetStock, forceRef
         const reason =
           code === "provider_busy"
             ? "price provider temporarily busy"
-            : code === "oracle_paused" || code === "trading_halted"
+            : code === "trading_halted"
               ? "pricing paused for this asset"
-              : code === "observation_too_old"
-                ? "latest reference is too old to show"
-                : code === "asset_changed" || code === "invalid_data"
-                  ? "could not verify the price data"
-                  : "price sources temporarily unreachable";
+              : code === "asset_changed" || code === "invalid_data"
+                ? "could not verify the price data"
+                : "price sources temporarily unreachable";
         return `${ticker}: price unavailable (${reason})`;
       }
     }),
@@ -63,7 +69,7 @@ export async function mainnetReferencePriceReply(symbol?: MainnetStock, forceRef
   return text(
     "📈 *Stock token prices · USD*\n\n" +
       lines.join("\n\n") +
-      "\n\nEstimated prices. Your final quote, including fees, appears before you confirm." +
+      "\n\nBinance reference prices. Your final quote, including fees, appears before you confirm." +
       "\nReply ‘try again’ to refresh, or ‘all’ for every stock.",
   );
 }
@@ -72,11 +78,11 @@ export async function mainnetStockListReply() {
   try {
     await verifiedMainnetRegistry();
     return text(
-      "Stock tokens on Robinhood mainnet\n\n" +
+      `Stock tokens on ${MAINNET_NETWORK_NAME}\n\n` +
         Object.entries(MAINNET_ASSETS)
           .map(([symbol, a]) => `• ${a.name} (${symbol})`)
           .join("\n") +
-        "\n\nAsk for prices, your holdings, or a trade.\n" +
+        "\n\nEach comes from three issuers (bStocks, Ondo and xStocks). Sharebloom compares them and trades the fairest price.\n\nAsk for prices, your holdings, or a trade.\n" +
         mainnetTradingMessage(),
     );
   } catch {
@@ -100,13 +106,15 @@ export async function mainnetPortfolioReply(db: DatabaseSync, account: string) {
     if (current?.status !== "active" || current.address !== wallet.address)
       return text("Your account changed. Please request the portfolio again.");
     // List held stocks only; the catalogue is long and zero rows add noise.
-    const stocks = result.balances.filter((a) => a.symbol !== "USDG" && a.formatted !== "0");
-    const usdg = result.balances.find((a) => a.symbol === "USDG");
+    const stocks = result.balances.filter((a) => a.ticker && a.balance > 0n);
+    const quote = result.balances.find((a) => a.address === MAINNET_QUOTE.address);
     const stockLines = stocks.length
-      ? stocks.map((a) => `${a.symbol}: ${a.formatted} tokens`).join("\n")
+      ? stocks
+          .map((a) => `${a.ticker} · ${a.symbol} (${a.issuer}): ${a.formatted} tokens`)
+          .join("\n")
       : "No stock tokens yet.";
     return text(
-      `Your Steward holdings · Robinhood mainnet\n\n${stockLines}\nUSDG: ${usdg?.formatted ?? "0"}\nETH: ${formatEther(result.eth)}\n\nWallet: ${wallet.address}\nStock quantities shown are raw token balances.`,
+      `Your Sharebloom holdings · ${MAINNET_NETWORK_NAME}\n\n${stockLines}\n${MAINNET_QUOTE.symbol}: ${quote?.formatted ?? "0"}\n${MAINNET_NATIVE_SYMBOL}: ${formatEther(result.native)}\n\nWallet: ${wallet.address}\nStock quantities shown are raw token balances.`,
     );
   } catch {
     return text(
@@ -122,7 +130,7 @@ export async function mainnetPriceReply(
   try {
     const p = await mainnetPrice(symbol, side, amount);
     return text(
-      `${symbol} · ${side} preview\nRobinhood mainnet\n\nSpend: ${formatUnits(p.sellAmount, p.sellDecimals)} ${side === "buy" ? "USDG" : symbol}\nEstimated receive: ${formatUnits(p.buyAmount, p.buyDecimals)} ${side === "buy" ? symbol : "USDG"}\n${p.networkFeeUsd && Number(p.networkFeeUsd) > 0 ? `Estimated network fee: $${Number(p.networkFeeUsd).toFixed(4)}` : "Network fee calculated at trade review"}\n\n${p.provider} · ${new Date(Number(p.timestamp) * 1000).toISOString().slice(11, 19)} UTC\nEstimate only; no trade created.`,
+      `${symbol} · ${side} preview\n${MAINNET_NETWORK_NAME}\nIssuer: ${p.variant.issuer} (${p.variant.symbol}) · fairest of ${p.evaluations.length}\n\nSpend: ${formatUnits(p.sellAmount, p.sellDecimals)} ${side === "buy" ? MAINNET_QUOTE.symbol : p.variant.symbol}\nEstimated receive: ${formatUnits(p.buyAmount, p.buyDecimals)} ${side === "buy" ? p.variant.symbol : MAINNET_QUOTE.symbol}\nNetwork fee calculated at trade review\n\n${p.provider} · ${new Date(Number(p.timestamp) * 1000).toISOString().slice(11, 19)} UTC\nEstimate only; no trade created.`,
     );
   } catch (error) {
     const code = error instanceof MainnetReadError ? error.code : "unavailable";
@@ -136,7 +144,11 @@ export async function mainnetPriceReply(
       );
     if (code === "invalid_amount")
       return text(
-        "Give a positive input amount up to 1,000: USDG for a buy, or stock-token quantity for a sell. USDG supports 6 decimal places; stock tokens support 18.",
+        `Give a positive input amount up to 1,000: ${MAINNET_QUOTE.symbol} for a buy, or stock-token quantity for a sell.`,
+      );
+    if (code === "no_fair_price")
+      return text(
+        "No issuer (bStocks, Ondo or xStocks) is offering a fair price for this stock right now, so I won't quote it. No order was created.",
       );
     return text(
       "I couldn’t get a verified mainnet price preview. The service or requested route may be unavailable. No order was created.",
@@ -148,14 +160,14 @@ export async function mainnetReceiveReply(db: DatabaseSync, account: string) {
   try {
     const wallet = await ensureMainnetWallet(db, account);
     return text(
-      `Your mainnet funding address\n\n${wallet.address}\n\nRobinhood mainnet (4663) only.\nReceive USDG for purchases and ETH for network fees.\n${mainnetTradingMessage()}`,
+      `Your ${MAINNET_NETWORK_NAME} funding address\n\n${wallet.address}\n\n${MAINNET_NETWORK_NAME} (chain ${MAINNET_CHAIN_ID}) only.\nSend ${MAINNET_QUOTE.symbol} (BEP-20) for purchases and a little ${MAINNET_NATIVE_SYMBOL} for network fees.\n${mainnetTradingMessage()}`,
     );
   } catch (error) {
     const code = error instanceof Error ? error.message : "";
     if (code === "mainnet_policy_required")
       return text("Mainnet wallet setup is not available yet. Your testnet wallet is separate.");
     if (code === "account_not_active")
-      return text("An active Steward account is required. Type Menu to get started.");
+      return text("An active Sharebloom account is required. Type Menu to get started.");
     return text(
       "I couldn’t finish checking your mainnet wallet. Ask ‘Show my mainnet wallet’ again shortly. No funds were sent.",
     );

@@ -1,38 +1,10 @@
-import { LIFI_FUNCTION, LIFI_ROUTER, lifiRouterAbi } from "./lifi-contracts";
-import { KYBER_ROUTER, requireTrade, sameAddress } from "./mainnet-trade";
-import { MAINNET_ASSETS, MAINNET_USDG, ORIGINAL_MAINNET_STOCKS } from "../networks/robinhood";
-export const lifiPolicyRule = {
-  name: "LI.FI same-chain stock swap",
-  method: "eth_sendTransaction" as const,
-  action: "ALLOW" as const,
-  conditions: [
-    {
-      field_source: "ethereum_transaction" as const,
-      field: "chain_id" as const,
-      operator: "eq" as const,
-      value: "4663",
-    },
-    {
-      field_source: "ethereum_transaction" as const,
-      field: "to" as const,
-      operator: "eq" as const,
-      value: LIFI_ROUTER,
-    },
-    {
-      field_source: "ethereum_transaction" as const,
-      field: "value" as const,
-      operator: "eq" as const,
-      value: "0x0",
-    },
-    {
-      field_source: "ethereum_calldata" as const,
-      field: "function_name" as const,
-      operator: "eq" as const,
-      value: LIFI_FUNCTION,
-      abi: lifiRouterAbi.filter((x) => x.type === "function"),
-    },
-  ],
-};
+import { KYBER_ROUTER, mainnetRouterAbi, requireTrade, sameAddress } from "./mainnet-trade";
+import { MAINNET_CHAIN_ID, MAINNET_QUOTE, MAINNET_STOCK_TOKENS } from "../networks/chain";
+
+// Privy wallet policy for Sharebloom on BNB Chain. The wallet may only: approve USDT or one
+// of the listed stock tokens, call KyberSwap's router `swap`, and transfer USDT. Every rule
+// pins chain 56, the exact contract, zero native value and the function name.
+const chainId = String(MAINNET_CHAIN_ID);
 const approveAbi = [
   {
     type: "function",
@@ -45,10 +17,21 @@ const approveAbi = [
     outputs: [{ name: "", type: "bool" }],
   },
 ];
-// Same shape as the approve rules in docs/privy-mainnet-policy.json.
-export function stockApproveRule(address: string) {
+const transferAbi = [
+  {
+    type: "function",
+    name: "transfer",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "to", type: "address" },
+      { name: "amount", type: "uint256" },
+    ],
+    outputs: [{ name: "", type: "bool" }],
+  },
+];
+function rule(name: string, to: string, functionName: string, abi: unknown) {
   return {
-    name: `Approve ${address}`,
+    name,
     method: "eth_sendTransaction" as const,
     action: "ALLOW" as const,
     conditions: [
@@ -56,13 +39,13 @@ export function stockApproveRule(address: string) {
         field_source: "ethereum_transaction" as const,
         field: "chain_id" as const,
         operator: "eq" as const,
-        value: "4663",
+        value: chainId,
       },
       {
         field_source: "ethereum_transaction" as const,
         field: "to" as const,
         operator: "eq" as const,
-        value: address,
+        value: to,
       },
       {
         field_source: "ethereum_transaction" as const,
@@ -74,17 +57,28 @@ export function stockApproveRule(address: string) {
         field_source: "ethereum_calldata" as const,
         field: "function_name" as const,
         operator: "eq" as const,
-        value: "approve",
-        abi: approveAbi,
+        value: functionName,
+        abi,
       },
     ],
   };
 }
-// Approve rules for stocks added after the original policy. Each is optional until the
-// rollout script adds it; selling that stock requires it (see validateMainnetPolicyRules).
-export const addedStockApproveRules = Object.entries(MAINNET_ASSETS)
-  .filter(([symbol]) => !ORIGINAL_MAINNET_STOCKS.includes(symbol as never))
-  .map(([, asset]) => stockApproveRule(asset.address));
+export const stockApproveRule = (address: string) =>
+  rule(`Approve ${address}`, address, "approve", approveAbi);
+/** The complete policy. Generated from the token list so the policy and code cannot drift. */
+export function mainnetPolicyRules() {
+  return [
+    stockApproveRule(MAINNET_QUOTE.address),
+    ...MAINNET_STOCK_TOKENS.map((t) => stockApproveRule(t.address)),
+    rule(`Send ${MAINNET_QUOTE.symbol}`, MAINNET_QUOTE.address, "transfer", transferAbi),
+    rule(
+      "KyberSwap stock swap",
+      KYBER_ROUTER,
+      "swap",
+      mainnetRouterAbi.filter((x) => x.type === "function" || x.type === "event"),
+    ),
+  ];
+}
 export function canonicalPolicy(x: unknown): string {
   if (Array.isArray(x)) return "[" + x.map(canonicalPolicy).join(",") + "]";
   if (x && typeof x === "object")
@@ -109,25 +103,18 @@ type Rule = {
     abi?: unknown;
   }[];
 };
-export function validateMainnetPolicyRules(
-  rules: Rule[],
-  needsLifi: boolean,
-  approveToken?: string,
-) {
-  const required = [
-    ...ORIGINAL_MAINNET_STOCKS.map((symbol) => [MAINNET_ASSETS[symbol].address, "approve"]),
-    [MAINNET_USDG.address, "approve"],
+/**
+ * The live policy must contain exactly the expected rules: every stock and USDT approval,
+ * the Kyber swap and the USDT transfer, each once, and nothing else. `approveToken`
+ * additionally requires the approval rule for a trade's input token.
+ */
+export function validateMainnetPolicyRules(rules: Rule[], approveToken?: string) {
+  const expected: [string, string][] = [
+    [MAINNET_QUOTE.address, "approve"],
+    ...MAINNET_STOCK_TOKENS.map((t): [string, string] => [t.address, "approve"]),
     [KYBER_ROUTER, "swap"],
-    [MAINNET_USDG.address, "transfer"],
+    [MAINNET_QUOTE.address, "transfer"],
   ];
-  // Narrow rules that may be present: the LI.FI router and approvals for added stocks.
-  const optional = [
-    [LIFI_ROUTER, LIFI_FUNCTION],
-    ...Object.entries(MAINNET_ASSETS)
-      .filter(([symbol]) => !ORIGINAL_MAINNET_STOCKS.includes(symbol as never))
-      .map(([, asset]) => [asset.address, "approve"]),
-  ];
-  const expected = [...required, ...optional];
   const seen = new Set<string>();
   for (const rule of rules) {
     requireTrade(
@@ -144,7 +131,7 @@ export function validateMainnetPolicyRules(
           sameAddress(String(c.value), value),
       );
     requireTrade(
-      eq("ethereum_transaction", "chain_id", "4663") && eq("ethereum_transaction", "value", "0x0"),
+      eq("ethereum_transaction", "chain_id", chainId) && eq("ethereum_transaction", "value", "0x0"),
     );
     const match = expected.find(
       ([address, name]) =>
@@ -152,16 +139,13 @@ export function validateMainnetPolicyRules(
     );
     requireTrade(match && !seen.has(match[0].toLowerCase() + match[1]));
     seen.add(match[0].toLowerCase() + match[1]);
-    if (sameAddress(match[0], LIFI_ROUTER)) {
-      const abi = rule.conditions.find((c) => c.field_source === "ethereum_calldata")?.abi;
-      requireTrade(canonicalPolicy(abi) === canonicalPolicy(lifiPolicyRule.conditions[3].abi));
-    }
   }
-  const has = (address: string, name: string) => seen.has(address.toLowerCase() + name);
   requireTrade(
-    required.every(([address, name]) => has(address, name)) &&
-      (!needsLifi || has(LIFI_ROUTER, LIFI_FUNCTION)),
+    expected.every(([address, name]) => seen.has(address.toLowerCase() + name)),
     "mainnet_policy_mismatch",
   );
-  requireTrade(!approveToken || has(approveToken, "approve"), "stock_not_enabled_for_selling");
+  requireTrade(
+    !approveToken || seen.has(approveToken.toLowerCase() + "approve"),
+    "stock_not_enabled_for_selling",
+  );
 }
