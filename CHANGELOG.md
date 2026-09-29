@@ -1,5 +1,19 @@
 # Changelog
 
+## 2026-09-29 — Sharebloom on BNB Chain
+
+### Added
+
+- WhatsApp trading of 27 tokenized stock tokens on BNB Chain (9 tickers × bStocks, Ondo, xStocks), paid in USDT.
+- Fair-price routing: every issuer is quoted through KyberSwap and checked against Binance's per-token reference price and trading status; quotes more than 2% worse are rejected.
+- Runtime registry check against Binance's RWA token list.
+- Privy policy generated from the token list.
+- Sharebloom landing page, icons and legal pages.
+
+### Removed
+
+- Robinhood Chain mainnet trading, LI.FI fallback and Steward rollout scripts.
+
 ## 2026-09-22 — Initial implementation and organization
 
 ### Added

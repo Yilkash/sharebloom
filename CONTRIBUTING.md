@@ -1,4 +1,4 @@
-# Contributing to Steward Pay
+# Contributing to Sharebloom
 
 ## Working conventions
 
