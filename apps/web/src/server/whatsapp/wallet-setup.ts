@@ -44,7 +44,7 @@ export function walletAddress(db: DatabaseSync, accountId: string) {
 }
 export function readyAccount(address: string) {
   return text(
-    `Your Steward test wallet is ready.\n\nNetwork: Robinhood Chain testnet\nWallet address:\n${address}\n\nOnly use Robinhood testnet assets here. Demo USD has no monetary value. Wallet setup does not add funds. Choose View balance to see your funds, or Send payment to review a Demo USD transfer.\n\nType Menu to return.`,
+    `Your Sharebloom test wallet is ready.\n\nNetwork: Robinhood Chain testnet\nWallet address:\n${address}\n\nOnly use Robinhood testnet assets here. Demo USD has no monetary value. Wallet setup does not add funds. Choose View balance to see your funds, or Send payment to review a Demo USD transfer.\n\nType Menu to return.`,
   );
 }
 // Called only inside the inbox transaction. No network operations here.
@@ -68,7 +68,7 @@ export function walletSetupReply(
     );
   if (!walletSetupEnabled())
     return text(
-      "Your Steward test account is active. Wallet setup is pending while the wallet connection is prepared. No wallet address is available yet. Type Menu to return.",
+      "Your Sharebloom test account is active. Wallet setup is pending while the wallet connection is prepared. No wallet address is available yet. Type Menu to return.",
     );
   if (input.startsWith("walletsetup:")) {
     const match = /^walletsetup:(accept|cancel):([a-f0-9]{48})$/.exec(input);
@@ -113,7 +113,7 @@ export function walletSetupReply(
     interactive: {
       type: "button",
       body: {
-        text: "Your account is ready. Next, set up your test wallet.\n\nPrivy will create and protect the wallet's private key. Steward controls this wallet through its authorization key. Access to this WhatsApp account gives access to your Steward account.\n\nThe wallet is for Robinhood Chain testnet. Demo USD has no monetary value. Creating it does not add funds or enable payments. Phone-number recipient lookup stays off.\n\nContinue to create the wallet? This confirmation expires in 10 minutes.",
+        text: "Your account is ready. Next, set up your test wallet.\n\nPrivy will create and protect the wallet's private key. Sharebloom controls this wallet through its authorization key. Access to this WhatsApp account gives access to your Sharebloom account.\n\nThe wallet is for Robinhood Chain testnet. Demo USD has no monetary value. Creating it does not add funds or enable payments. Phone-number recipient lookup stays off.\n\nContinue to create the wallet? This confirmation expires in 10 minutes.",
       },
       action: {
         buttons: [

@@ -24,9 +24,9 @@ export async function balanceReply(db: DatabaseSync, key: Buffer, phone: string,
     LEFT JOIN wa_managed_wallets w ON w.account_id=a.id WHERE a.sender=?`,
     )
     .get(sender) as { address: string | null; chain: number | null; status: string } | undefined;
-  if (!wallet) return text("Create your Steward test account first. Type Menu to begin.");
+  if (!wallet) return text("Create your Sharebloom test account first. Type Menu to begin.");
   if (wallet.status !== "active")
-    return text("This account is paused. Contact the Steward operator for recovery.");
+    return text("This account is paused. Contact the Sharebloom operator for recovery.");
   if (!wallet.address)
     return text("Your wallet is not ready yet. Choose My account to check setup.");
   try {
@@ -57,7 +57,7 @@ export async function balanceReply(db: DatabaseSync, key: Buffer, phone: string,
       | { status: string }
       | undefined;
     if (current?.status !== "active")
-      return text("This account is paused. Contact the Steward operator for recovery.");
+      return text("This account is paused. Contact the Sharebloom operator for recovery.");
     if (amount !== undefined) {
       if (!/^(?:0|[1-9]\d{0,3})(?:\.\d{1,6})?$/.test(amount) || parseUnits(amount, 6) <= 0n)
         return text("Enter a positive Demo USD amount to check.");

@@ -32,7 +32,7 @@ export function phoneSettings(db: DatabaseSync, account: string, input: string, 
   const row = db
     .prepare("SELECT phone_lookup FROM wa_accounts WHERE id=? AND status='active'")
     .get(account) as { phone_lookup: number } | undefined;
-  if (!row) return text("Create your Steward account before changing this setting.");
+  if (!row) return text("Create your Sharebloom account before changing this setting.");
   const match = /^phoneprivacy:(confirm|cancel):([a-f0-9]{48})$/.exec(input);
   if (match) {
     const consent = db
@@ -54,7 +54,7 @@ export function phoneSettings(db: DatabaseSync, account: string, input: string, 
     );
     return text(
       consent.enable
-        ? "Phone-number payments are enabled. Steward users who know your full WhatsApp number can find your wallet address and send Demo USD to it. You can turn this off in Help & settings."
+        ? "Phone-number payments are enabled. Sharebloom users who know your full WhatsApp number can find your wallet address and send Demo USD to it. You can turn this off in Help & settings."
         : "Phone-number payments are off. Your number will no longer resolve to your wallet for new lookups. Existing reviewed payments and saved wallet addresses are unaffected.",
     );
   }
@@ -69,7 +69,7 @@ export function phoneSettings(db: DatabaseSync, account: string, input: string, 
     ).run(hash(token), account, VERSION, enable ? 1 : 0, Date.now() + 600000);
     return buttons(
       enable
-        ? "Allow payments to your WhatsApp number?\n\nOther Steward users who enter your full number will be able to see your wallet address and send Demo USD to it. Your balance and payment history stay private. This does not authorize anyone to spend from your wallet.\n\nYou can turn this off later. Confirmation expires in 10 minutes."
+        ? "Allow payments to your WhatsApp number?\n\nOther Sharebloom users who enter your full number will be able to see your wallet address and send Demo USD to it. Your balance and payment history stay private. This does not authorize anyone to spend from your wallet.\n\nYou can turn this off later. Confirmation expires in 10 minutes."
         : "Turn off phone-number payments?\n\nNew lookups will stop finding your wallet. This cannot hide an address someone already knows or cancel an already reviewed payment.",
       [
         { id: "phoneprivacy:confirm:" + token, title: enable ? "Enable lookup" : "Disable lookup" },
@@ -80,7 +80,7 @@ export function phoneSettings(db: DatabaseSync, account: string, input: string, 
   if (input.startsWith("phoneprivacy:"))
     return text("This setting action is invalid. Open Help & settings again.");
   return buttons(
-    `Help & settings\n\nPhone-number payments: ${row.phone_lookup ? "ON" : "OFF"}\n\nThis setting controls whether other Steward users can find your wallet by entering your full WhatsApp number.\n\nPayments use USDG on Robinhood mainnet. Limit: 1,000 USDG per payment. Transfers require your confirmation. Never share a private key.`,
+    `Help & settings\n\nPhone-number payments: ${row.phone_lookup ? "ON" : "OFF"}\n\nThis setting controls whether other Sharebloom users can find your wallet by entering your full WhatsApp number.\n\nPayments use USDT on BNB Chain. Limit: 1,000 USDT per payment. Transfers require your confirmation. Never share a private key.`,
     [
       {
         id: row.phone_lookup ? "phoneprivacy:disable" : "phoneprivacy:enable",

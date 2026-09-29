@@ -33,18 +33,18 @@ export function mainnetPaymentEntry(
   const draft: Draft = start ? {} : unseal<Draft>(row!.payload, key);
   if (!start) {
     if (!draft.recipient) draft.recipient = input.trim();
-    else draft.amount = input.trim().replace(/\s*USDG$/i, "");
+    else draft.amount = input.trim().replace(/\s*USDT$/i, "");
   }
   if (draft.amount && !/^(?:0|[1-9]\d{0,3})(?:\.\d{1,6})?$/.test(draft.amount))
-    return text("Enter a USDG amount, for example 0.5. Type Cancel to stop.");
+    return text("Enter a USDT amount, for example 0.5. Type Cancel to stop.");
   db.prepare(
     "INSERT OR REPLACE INTO wa_mainnet_payment_drafts(account_id,payload,expires) VALUES(?,?,?)",
   ).run(account, seal(draft, key), Date.now() + 600000);
   if (!draft.recipient)
     return text(
-      "Who should receive USDG on Robinhood mainnet? Enter a wallet address, saved contact name or full international phone number.",
+      "Who should receive USDT on BNB Chain? Enter a wallet address, saved contact name or full international phone number.",
     );
-  if (!draft.amount) return text("How much USDG would you like to send?");
+  if (!draft.amount) return text("How much USDT would you like to send?");
   return {
     _steward_type: "mainnet_action",
     action: "send",
@@ -132,11 +132,11 @@ export async function mainnetAction(
   const account = db
     .prepare("SELECT id FROM wa_accounts WHERE sender=? AND status='active'")
     .get(senderLookup(phone, key)) as { id: string } | undefined;
-  if (!account) return text("Create your Steward account first.");
+  if (!account) return text("Create your Sharebloom account first.");
   if (action === "receive") return mainnetReceiveReply(db, account.id);
   if (action === "balance") return mainnetPortfolioReply(db, account.id);
   if (action === "history") return mainnetTradeStatusReply(db, account.id);
   if (action === "send" && recipient && amount)
     return mainnetPaymentReview(db, key, account.id, phone, messageId, recipient, amount);
-  return text("Choose Send payment to prepare a USDG transfer.");
+  return text("Choose Send payment to prepare a USDT transfer.");
 }

@@ -14,9 +14,9 @@ import { actionFor, menu, text, onboardingWelcome } from "./menu";
 import { migrateWalletSetup, walletSetupReply, walletAddress, readyAccount } from "./wallet-setup";
 
 // Version the exact disclosure so later custody changes require fresh consent.
-export const CONSENT_VERSION = "steward-account-v2";
+export const CONSENT_VERSION = "sharebloom-account-v1";
 export const DISCLOSURE =
-  "Create a Steward account\n\nSteward controls your wallet and authorizes only transactions you confirm. Mainnet USDG payments and stock trades use real assets. Testnet Demo USD is for practice. Control of this WhatsApp account gives access to your Steward account.\n\nContinuing creates your account and requests a dedicated mainnet wallet. No funds are added. Phone-number recipient lookup is off until you choose to enable it.\n\nThis choice expires in 10 minutes.";
+  "Create a Sharebloom account\n\nSharebloom controls your wallet and authorizes only transactions you confirm. Stock trades and USDT payments on BNB Chain use real assets. Control of this WhatsApp account gives access to your Sharebloom account.\n\nContinuing creates your account and requests a dedicated BNB Chain wallet. No funds are added. Phone-number recipient lookup is off until you choose to enable it.\n\nThis choice expires in 10 minutes.";
 type Account = { id: string; status: string; wallet_state: string };
 const digest = (value: string) => createHash("sha256").update(value).digest("hex");
 export function migrateAccounts(db: DatabaseSync) {
@@ -62,7 +62,7 @@ export function accountReply(
     .get(sender) as Account | undefined;
   if (account && account.status !== "active")
     return text(
-      "This account is paused. Contact the Steward operator for recovery. No wallet action was performed.",
+      "This account is paused. Contact the Sharebloom operator for recovery. No wallet action was performed.",
     );
   const mainnetDraft =
     account &&
@@ -100,7 +100,7 @@ export function accountReply(
   if (message.input.startsWith("stock:"))
     return account
       ? stockConfirmationReply(db, key, account.id, message.input, message.id)
-      : text("Create your Steward account first. Nothing was submitted.");
+      : text("Create your Sharebloom account first. Nothing was submitted.");
   if (message.input.startsWith("pay:"))
     return paymentReply(db, key, message) ?? text("Create your wallet first. Type Menu to begin.");
   if (["recent", "recent activity", "activity", "history"].includes(command))
@@ -120,7 +120,7 @@ export function accountReply(
   ) {
     return account
       ? assistantRoute(db, account.id, message.input, message.id)
-      : text("Create your Steward account first, then choose Ask Steward from Menu.");
+      : text("Create your Sharebloom account first, then choose Ask Sharebloom from Menu.");
   }
   if (
     message.input.startsWith("phoneprivacy:") ||
@@ -135,7 +135,9 @@ export function accountReply(
     }
     return account
       ? phoneSettings(db, account.id, message.input, message.id)
-      : text("Create your Steward account first to use phone-number settings. Type Menu to begin.");
+      : text(
+          "Create your Sharebloom account first to use phone-number settings. Type Menu to begin.",
+        );
   }
   // Ordinary chat language reaches intent inference first. Button payloads keep
   // their deterministic handlers and cannot authorize actions through the model.
@@ -172,7 +174,7 @@ export function accountReply(
   if (message.input.startsWith("walletsetup:")) {
     return account
       ? walletSetupReply(db, sender, account.id, message.input, message.id)
-      : text("Create a Steward test account first. Type Menu to begin.");
+      : text("Create a Sharebloom test account first. Type Menu to begin.");
   }
   if (message.input.startsWith("enroll:")) {
     const match = /^enroll:(accept|cancel):([a-f0-9]{48})$/.exec(message.input);
@@ -245,7 +247,7 @@ export function accountReply(
   if (["hi", "hello", "start"].includes(command)) {
     if (!account) return onboardingWelcome();
 
-    return assistantRoute(db, account.id, "Ask Steward", message.id);
+    return assistantRoute(db, account.id, "Ask Sharebloom", message.id);
   }
   if (action && ["balance", "send", "receive", "history", "contacts"].includes(action)) {
     const wallet = account && walletAddress(db, account.id);
@@ -259,14 +261,14 @@ export function accountReply(
     return text(
       account
         ? "Your test account is ready, but wallet setup is pending. This action is not available yet; no payment was prepared or sent. Type Menu to return."
-        : "Create your Steward test account first: type Create account to review the details. Wallet setup is still pending.",
+        : "Create your Sharebloom test account first: type Create account to review the details. Wallet setup is still pending.",
     );
   }
   const chat = account && assistantRoute(db, account.id, message.input, message.id);
   if (chat) return chat;
   if (account && !action) {
     // Start the session, then handle the actual message instead of discarding it.
-    const started = assistantRoute(db, account.id, "Ask Steward", message.id);
+    const started = assistantRoute(db, account.id, "Ask Sharebloom", message.id);
     if (!assistantSession(db, account.id)) return started;
     return assistantRoute(db, account.id, message.input, message.id) ?? started;
   }

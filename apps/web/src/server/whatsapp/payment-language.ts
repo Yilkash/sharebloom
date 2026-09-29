@@ -8,7 +8,7 @@ export function migratePaymentLanguage(db: DatabaseSync) {
   )`);
 }
 
-// Local intent rules: no messages or draft history leave Steward.
+// Local intent rules: no messages or draft history leave Sharebloom.
 // All requests feed the existing review/confirmation flow, never submission.
 export function paymentLanguageReply(
   db: DatabaseSync,
@@ -64,7 +64,7 @@ export function paymentLanguageReply(
   body = body.replace(/\bfrom\s+(?:my\s+(?:steward\s+)?wallet|me)\b/gi, "").trim();
   if (/\bfrom\b/i.test(body))
     return text(
-      "I can only prepare a payment from your own Steward wallet. Tell me the recipient and amount. Nothing was sent.",
+      "I can only prepare a payment from your own Sharebloom wallet. Tell me the recipient and amount. Nothing was sent.",
     );
   if (/\b(?:not|don't|dont|never|instead|or|and|except)\b|[?]/i.test(body))
     return text(

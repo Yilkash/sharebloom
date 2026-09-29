@@ -9,7 +9,7 @@ import { currentTask, runAssistantTool } from "../src/server/whatsapp/assistant-
 afterEach(() => mock.restoreAll());
 
 for (const name of ["Apple", "apples", "Apple's", "Apple’s", "AAPL"]) {
-  test(`stock request recognises ${name} and preserves its 0.2 USDG budget`, async () => {
+  test(`stock request recognises ${name} and preserves its 0.2 USDT budget`, async () => {
     const db = new DatabaseSync(":memory:");
     const key = Buffer.alloc(32, 3);
     const enabled = process.env.MAINNET_STOCK_TRADING_ENABLED;
@@ -30,13 +30,13 @@ for (const name of ["Apple", "apples", "Apple's", "Apple’s", "AAPL"]) {
         input,
         input,
         "prepare_mainnet_stock_trade",
-        { symbol: "AAPL", side: "buy", amount: "0.2", unit: "USDG" },
+        { symbol: "AAPL", side: "buy", amount: "0.2", unit: "USDT" },
       );
       const draft = currentTask(db, key, "test-account", "consent");
       assert.equal(draft?.mainnetSymbol, "AAPL");
       assert.equal(draft?.side, "buy");
       assert.equal(draft?.amount, "0.2");
-      assert.equal(draft?.unit, "USDG");
+      assert.equal(draft?.unit, "USDT");
       assert.equal(draft?.desiredQuantity, undefined);
       assert.equal(
         (db.prepare("SELECT count(*) AS n FROM wa_mainnet_orders").get() as { n: number }).n,

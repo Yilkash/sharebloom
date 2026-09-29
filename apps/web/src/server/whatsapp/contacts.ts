@@ -166,7 +166,7 @@ export function contactsReply(db: DatabaseSync, key: Buffer, account: string, in
     if (!c) return text("This contact no longer exists. Type Manage contacts to refresh.");
     if (pick[1] === "pick") {
       clear();
-      return buttons(`${c.name}\n${c.address}\nVerify the recipient address on Robinhood mainnet`, [
+      return buttons(`${c.name}\n${c.address}\nVerify the recipient address on BNB Chain`, [
         { id: "contact:edit:" + c.id, title: "Edit contact" },
         { id: "contact:delete:" + c.id, title: "Delete contact" },
         { id: "contact:page:0", title: "Back to contacts" },
@@ -269,7 +269,7 @@ export function contactsReply(db: DatabaseSync, key: Buffer, account: string, in
     draft.stage = "address";
     save(draft);
     return text(
-      `Enter ${name}’s 0x wallet address for Robinhood mainnet.${draft.address ? "\nCurrent address: " + draft.address + "\nSend Keep to use the current address." : ""}`,
+      `Enter ${name}’s 0x wallet address for BNB Chain.${draft.address ? "\nCurrent address: " + draft.address + "\nSend Keep to use the current address." : ""}`,
     );
   }
   if (draft.stage === "address") {
@@ -285,7 +285,7 @@ export function contactsReply(db: DatabaseSync, key: Buffer, account: string, in
     draft.stage = "review";
     save(draft);
     return buttons(
-      `Save contact?\n\n${draft.name}\n${address}\n\nVerify the recipient address on Robinhood mainnet`,
+      `Save contact?\n\n${draft.name}\n${address}\n\nVerify the recipient address on BNB Chain`,
       [
         { id: "contact:confirm:" + draft.token, title: "Save contact" },
         { id: "contact:cancel:" + draft.token, title: "Cancel" },

@@ -11,7 +11,7 @@ import {
   validateMainnetPlan,
   type MainnetPlan,
 } from "./mainnet-trade";
-import { MAINNET_EXECUTION_READY, type MainnetStock } from "../networks/chain";
+import { MAINNET_EXECUTION_READY, MAINNET_QUOTE, type MainnetStock } from "../networks/chain";
 export const orderDigest = (s: string) => createHash("sha256").update(s).digest("hex");
 export type MainnetWallet = {
   account_id: string;
@@ -144,7 +144,7 @@ export async function mainnetTradeReviewReply(
         type: "button",
         body: {
           text: transferTo
-            ? `Review payment · Robinhood mainnet\n\nSend: ${formatUnits(BigInt(plan.amountIn), 6)} USDG\nTo: ${transferTo}\nEstimated network fee: ${formatEther(BigInt(plan.estimatedFee!))} ETH\nMaximum network fee: ${formatEther(fee)} ETH\nExpires: ${new Date(plan.deadline * 1000).toISOString().slice(11, 19)} UTC\n\nConfirm sends real USDG to this address.`
+            ? `Review payment · BNB Chain\n\nSend: ${formatUnits(BigInt(plan.amountIn), MAINNET_QUOTE.decimals)} USDT\nTo: ${transferTo}\nEstimated network fee: ${formatEther(BigInt(plan.estimatedFee!))} BNB\nMaximum network fee: ${formatEther(fee)} BNB\nExpires: ${new Date(plan.deadline * 1000).toISOString().slice(11, 19)} UTC\n\nConfirm sends real USDT to this address.`
             : mainnetTradeReviewText(plan),
         },
         action: {
@@ -180,14 +180,14 @@ export async function mainnetTradeReviewReply(
     const code = error instanceof Error ? error.message : "";
     const reasons: Record<string, string> = {
       insufficient_tokens: "Your wallet doesn’t have enough of the input token.",
-      insufficient_eth_for_network_fee: "Your wallet needs more ETH for the reviewed network fee.",
+      insufficient_eth_for_network_fee: "Your wallet needs more BNB for the reviewed network fee.",
       route_unavailable: "The quote service is temporarily unavailable.",
       lifi_quote_unavailable: "Both trading quote services are temporarily unavailable.",
       lifi_fee_limit_exceeded: "The backup provider’s fee exceeds the allowed limit.",
       route_busy: "The trading quote service is busy right now.",
       route_build_unavailable: "The quote service couldn’t prepare this trade.",
       route_expired: "The provider returned an expired quote.",
-      registry_unavailable: "Robinhood’s token registry is temporarily unavailable.",
+      registry_unavailable: "Binance’s stock token list is temporarily unavailable.",
       invalid_amount: "Please provide a valid spending amount.",
     };
     console.warn(
@@ -283,7 +283,7 @@ export function mainnetTradeStatusReply(db: DatabaseSync, account: string) {
             expired: "Review expired",
             cancelled: "Cancelled",
           };
-          return `${new Date(o.created).toISOString().slice(11, 19)} UTC: ${label[o.state] ?? "Checking"}${steps.length ? "\n" + steps.map((s) => `https://robinhoodchain.blockscout.com/tx/${s.tx_hash}`).join("\n") : ""}`;
+          return `${new Date(o.created).toISOString().slice(11, 19)} UTC: ${label[o.state] ?? "Checking"}${steps.length ? "\n" + steps.map((s) => `https://bscscan.com/tx/${s.tx_hash}`).join("\n") : ""}`;
         })
         .join("\n\n"),
   );
