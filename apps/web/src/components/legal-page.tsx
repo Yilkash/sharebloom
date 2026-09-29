@@ -5,7 +5,7 @@ export function LegalPage({ title, children }: { title: string; children: ReactN
   return (
     <main className={styles.page}>
       <nav aria-label="Privacy navigation" className={styles.nav}>
-        <a href="/">Steward Pay</a>
+        <a href="/">Sharebloom</a>
         <a href="/privacy">Privacy policy</a>
         <a href="/data-deletion">Data deletion</a>
       </nav>

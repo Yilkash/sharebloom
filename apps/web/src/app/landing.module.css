@@ -3,7 +3,7 @@
   --muted: #5f6f66;
   --green: #1f4d3d;
   --deep: #0c1f18;
-  --lime: #c6f24e;
+  --lime: #f5c84c;
   --wa: #25d366;
   --line: #e2e8df;
   --soft: #eef3ea;
@@ -481,5 +481,119 @@
   .final {
     margin: 72px 16px 0;
     border-radius: 22px;
+  }
+}
+
+/* Sharebloom additions */
+.brandMark {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: var(--green);
+  color: #f5c84c;
+  font-size: 20px;
+  line-height: 1;
+}
+
+.phoneMock {
+  justify-self: center;
+  width: min(340px, 100%);
+  border: 8px solid var(--deep);
+  border-radius: 34px;
+  background: #e8e0d5;
+  box-shadow: 0 30px 60px rgba(12, 31, 24, 0.25);
+  overflow: hidden;
+}
+
+.phoneHeader {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  background: var(--deep);
+  color: white;
+  font-weight: 700;
+}
+
+.phoneMock .chat {
+  margin: 0;
+  max-width: none;
+  border-radius: 0;
+  padding: 16px;
+}
+
+.sectionLead {
+  max-width: 680px;
+  margin: 18px 0 0;
+  color: var(--muted);
+  font-size: 18px;
+}
+
+.comparison {
+  display: grid;
+  gap: 10px;
+  margin: 26px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.comparison li {
+  display: grid;
+  grid-template-columns: 110px 110px 1fr;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 20px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: white;
+}
+
+.comparison code {
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.comparison span {
+  color: var(--muted);
+}
+
+.best {
+  border-color: #6fbf73 !important;
+  background: #f1faf0 !important;
+}
+
+.best b {
+  color: #2f7a32;
+}
+
+.ok b {
+  color: var(--muted);
+}
+
+.bad {
+  border-color: #e8a0a0 !important;
+  background: #fdf1f1 !important;
+}
+
+.bad b {
+  color: #b3261e;
+}
+
+.note {
+  margin: 16px 0 0;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+@media (max-width: 560px) {
+  .comparison li {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .comparison li b {
+    grid-column: 1 / -1;
   }
 }

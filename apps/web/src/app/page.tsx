@@ -5,7 +5,7 @@ import {
   Github,
   Lock,
   MessageCircle,
-  Route,
+  Scale,
   ShieldCheck,
   Timer,
   Wallet,
@@ -16,18 +16,15 @@ import styles from "./landing.module.css";
 
 export const dynamic = "force-dynamic";
 
-const WHATSAPP = "https://wa.me/2348051064171?text=Hi";
-const GITHUB = "https://github.com/Yilkash/steward";
-const tx = (hash: string) => `https://robinhoodchain.blockscout.com/tx/${hash}`;
+const WHATSAPP = "https://wa.me/2349032729156?text=Hi";
+const GITHUB = "https://github.com/Yilkash/sharebloom";
 
 const examples = [
-  "Buy AAPL with 0.5 USDG",
-  "What would 1 USDG get me in Tesla?",
-  "Sell 0.001 Apple shares",
-  "Show my mainnet stocks",
-  "Send 5 USDG to Ada",
-  "Buy SPY with 2 USDG",
-  "Buy Microsoft with 1 USDG",
+  "Buy Apple with 5 USDT",
+  "What would 10 USDT get me in Tesla?",
+  "Buy the S&P 500 with 20 USDT",
+  "Sell 0.01 NVIDIA",
+  "Show my stocks",
   "What are the prices?",
 ];
 
@@ -39,18 +36,18 @@ const steps = [
   },
   {
     icon: Bot,
-    title: "AI finds the action",
-    body: "SERV Reasoning picks the right tool, with a prompt-injection guard on every message.",
+    title: "AI understands you",
+    body: "SERV Reasoning turns your message into the right action, with a prompt-injection guard on every message.",
   },
   {
-    icon: Route,
-    title: "Code checks the trade",
-    body: "Best route via KyberSwap or LI.FI. Contracts, amounts, minimum output and fees are verified in code.",
+    icon: Scale,
+    title: "Three issuers compared",
+    body: "bStocks, Ondo and xStocks are quoted side by side against Binance's reference price. Unfair quotes are rejected.",
   },
   {
     icon: BadgeCheck,
     title: "You tap Confirm",
-    body: "The trade settles on Robinhood Chain and you get a receipt with an explorer link.",
+    body: "The fairest trade settles on BNB Chain and you get a BscScan receipt in the chat.",
   },
 ];
 
@@ -61,36 +58,28 @@ const safety = [
     body: "No tool can confirm or submit a transaction. Only your button press can.",
   },
   {
-    icon: Wallet,
-    title: "Your own wallet",
-    body: "Each user gets a Privy wallet whose policy only allows approved contracts and functions.",
+    icon: Scale,
+    title: "No bad fills",
+    body: "Any quote more than 2% worse than Binance's price for that token is refused, and halted tokens are skipped.",
   },
   {
-    icon: ShieldCheck,
-    title: "Exact reviews",
-    body: "Every review shows what you pay, what you get, the minimum and the maximum network fee.",
+    icon: Wallet,
+    title: "Your own wallet",
+    body: "Each user gets a Privy wallet whose policy only allows the 27 listed stock tokens, USDT and KyberSwap.",
   },
   {
     icon: Timer,
-    title: "Single-use, expiring",
-    body: "Reviews expire after 4 minutes and each Confirm button works once.",
+    title: "Exact, expiring reviews",
+    body: "Every review shows the issuer, minimum received and maximum fee, expires in 4 minutes, and confirms once.",
   },
 ];
 
-const proof = [
-  {
-    label: "Buy AAPL with 0.5 USDG",
-    hash: "0x6f92e708761a6a7da54315908a31d9dcf814fde569c58b4f5b1867bb9640af0c",
-  },
-  {
-    label: "Buy AAPL with 0.5 USDG",
-    hash: "0x5091fac8af4ae6a7165664b95f32b7127557fee6b57ef5144e26210f285ad8d9",
-  },
-  {
-    label: "Buy AAPL",
-    hash: "0x9a875b3943b63bd02ab79808ed1bb27b9e75720a7836b0f46bce4c81e374e091",
-  },
-];
+// Live comparison captured on 2026-09-29 for a 1 USDT Apple buy on BNB Chain.
+const comparison = [
+  { token: "AAPLB", issuer: "bStocks", result: "Best fair price", tone: "best" },
+  { token: "AAPLon", issuer: "Ondo", result: "Fair, slightly less stock", tone: "ok" },
+  { token: "AAPLx", issuer: "xStocks", result: "Rejected: 509% above fair price", tone: "bad" },
+] as const;
 
 export default function Landing() {
   const stats = publicStats();
@@ -98,15 +87,15 @@ export default function Landing() {
     <div className={styles.page}>
       <header className={styles.nav}>
         <a className={styles.brand} href="/">
-          <img className={styles.brandLogo} src="/images/steward-logo.png" alt="" />
+          <img className={styles.brandMark} src="/images/sharebloom-logo.png" alt="" />
           <span>
-            steward<span className={styles.dot}>.</span>
+            sharebloom<span className={styles.dot}>.</span>
           </span>
         </a>
         <nav className={styles.links} aria-label="Sections">
           <a href="#how">How it works</a>
+          <a href="#fair-price">Fair price</a>
           <a href="#safety">Safety</a>
-          <a href="#proof">Proof</a>
           <a href={GITHUB}>GitHub</a>
         </nav>
         <a className={styles.navCta} href={WHATSAPP}>
@@ -117,72 +106,74 @@ export default function Landing() {
       <main className={styles.main}>
         <section className={styles.hero}>
           <div className={styles.heroText}>
-            <p className={styles.eyebrow}>Live on Robinhood Chain mainnet</p>
+            <p className={styles.eyebrow}>Tokenized US stocks · BNB Chain</p>
             <h1>
-              Buy stocks by <span className={styles.highlight}>texting</span> on WhatsApp.
+              Own a piece of Apple by <span className={styles.highlight}>texting</span>.
             </h1>
             <p className={styles.lead}>
-              Trade Apple, Tesla, NVIDIA, the S&P 500 and more with USDG, just by chatting. Steward
-              shows you the exact deal, and nothing moves until you tap Confirm.
+              Buy Apple, Tesla, NVIDIA, the S&amp;P 500 and more with USDT, right inside WhatsApp.
+              Sharebloom compares bStocks, Ondo and xStocks and trades the fairest price.
             </p>
             <div className={styles.ctas}>
               <a className={styles.primary} href={WHATSAPP}>
                 <MessageCircle size={18} /> Start on WhatsApp
               </a>
-              <a className={styles.secondary} href="#proof">
-                See real trades <ArrowUpRight size={16} />
+              <a className={styles.secondary} href="#fair-price">
+                How we pick your price <ArrowUpRight size={16} />
               </a>
             </div>
-            <div className={styles.chat} aria-label="Example conversation">
-              <p className={styles.me}>Buy AAPL with 0.5 USDG</p>
+          </div>
+          <div className={styles.phoneMock} aria-label="Example Sharebloom conversation">
+            <div className={styles.phoneHeader}>
+              <img className={styles.brandMark} src="/images/sharebloom-logo.png" alt="" />
+              Sharebloom
+            </div>
+            <div className={styles.chat}>
+              <p className={styles.me}>Buy Apple with 5 USDT</p>
               <p className={styles.bot}>
-                Pay 0.5 USDG · Receive ≈ 0.00147 AAPL
+                <b>Buy Apple (AAPL)</b>
+                <br />
+                BNB Chain · Issuer: bStocks (AAPLB)
+                <br />
+                best fair price of 3
+                <br />
+                <br />
+                Pay: 5 USDT
+                <br />
+                Receive: ≈ 0.01482 AAPLB
                 <br />
                 <b>[ Confirm buy ]</b>
               </p>
-              <p className={styles.bot}>Trade complete ✅</p>
+              <p className={styles.me}>Confirm buy</p>
+              <p className={styles.bot}>Trade complete ✅ BscScan receipt ↗</p>
             </div>
-          </div>
-          <div className={styles.phones}>
-            <img
-              src="/images/whatsapp-sell-review.jpg"
-              alt="Steward in WhatsApp showing an exact review to sell 0.001 AAPL"
-              className={styles.phoneBack}
-            />
-            <img
-              src="/images/whatsapp-buy-receipt.jpg"
-              alt="Steward in WhatsApp confirming an AAPL buy with an explorer link"
-              className={styles.phoneFront}
-            />
           </div>
         </section>
 
-        <section className={styles.stats} aria-label="Steward at a glance">
+        <section className={styles.stats} aria-label="Sharebloom at a glance">
           {stats && (
-            <>
-              <div>
-                <b>{stats.users}</b>
-                <span>users with their own wallet</span>
-              </div>
-              <div>
-                <b>{stats.confirmed}</b>
-                <span>confirmed mainnet trades and payments</span>
-              </div>
-            </>
+            <div>
+              <b>{stats.users}</b>
+              <span>users with their own wallet</span>
+            </div>
           )}
           <div>
             <b>{MAINNET_STOCK_SYMBOLS.length}</b>
             <span>stocks and ETFs, from Apple to the S&amp;P 500</span>
           </div>
           <div>
+            <b>3</b>
+            <span>issuers compared on every trade</span>
+          </div>
+          <div>
             <b>24/7</b>
-            <span>trading, settled in seconds</span>
+            <span>trading on BNB Chain</span>
           </div>
         </section>
 
         <section className={styles.section}>
           <p className={styles.eyebrow}>Just say it</p>
-          <h2>Things you can text Steward</h2>
+          <h2>Things you can text Sharebloom</h2>
           <div className={styles.examples}>
             {examples.map((text) => (
               <code key={text}>{text}</code>
@@ -192,7 +183,7 @@ export default function Landing() {
 
         <section id="how" className={styles.section}>
           <p className={styles.eyebrow}>How it works</p>
-          <h2>AI suggests. Code verifies. You confirm.</h2>
+          <h2>AI understands. Code compares. You confirm.</h2>
           <div className={styles.grid4}>
             {steps.map(({ icon: Icon, title, body }, index) => (
               <article key={title} className={styles.card}>
@@ -203,6 +194,28 @@ export default function Landing() {
               </article>
             ))}
           </div>
+        </section>
+
+        <section id="fair-price" className={styles.section}>
+          <p className={styles.eyebrow}>Why it matters</p>
+          <h2>The same stock can cost 6× more in the wrong pool.</h2>
+          <p className={styles.sectionLead}>
+            Each stock on BNB Chain is issued three times, with separate liquidity. Some pools are
+            thin. A live 1 USDT Apple buy on 29 September 2026:
+          </p>
+          <ul className={styles.comparison}>
+            {comparison.map((row) => (
+              <li key={row.token} className={styles[row.tone]}>
+                <code>{row.token}</code>
+                <span>{row.issuer}</span>
+                <b>{row.result}</b>
+              </li>
+            ))}
+          </ul>
+          <p className={styles.note}>
+            Reference prices and trading status come from Binance&apos;s RWA data for each exact
+            token. Routes come from KyberSwap.
+          </p>
         </section>
 
         <section id="safety" className={`${styles.section} ${styles.dark}`}>
@@ -219,43 +232,24 @@ export default function Landing() {
           </div>
         </section>
 
-        <section id="proof" className={styles.section}>
-          <p className={styles.eyebrow}>Don’t trust us, check the chain</p>
-          <h2>Real trades on Robinhood Chain</h2>
-          <ul className={styles.proof}>
-            {proof.map(({ label, hash }) => (
-              <li key={hash}>
-                <span>{label}</span>
-                <a href={tx(hash)}>
-                  <code>
-                    {hash.slice(0, 10)}…{hash.slice(-6)}
-                  </code>
-                  <ArrowUpRight size={15} />
-                </a>
-              </li>
-            ))}
-          </ul>
-        </section>
-
         <section className={styles.final}>
           <h2>Your first stock is one message away.</h2>
-          <p>Say hi, create your account, fund it with a little USDG and ETH, and start trading.</p>
+          <p>Say hi, create your account, add a little USDT and BNB, and start owning.</p>
           <a className={styles.primary} href={WHATSAPP}>
-            <MessageCircle size={18} /> Chat with Steward
+            <MessageCircle size={18} /> Chat with Sharebloom
           </a>
         </section>
       </main>
 
       <footer className={styles.footer}>
         <span>
-          Steward · Powered by SERV Reasoning · Stock tokens are Robinhood Chain tokens, not direct
-          share ownership.
+          Sharebloom by Steward Pay · Powered by SERV Reasoning · Stock tokens are BNB Chain tokens,
+          not direct share ownership.
         </span>
         <nav aria-label="Footer">
           <a href={GITHUB}>
             <Github size={14} /> GitHub
           </a>
-          <a href="/testnet">Testnet web demo</a>
           <a href="/privacy">Privacy</a>
           <a href="/data-deletion">Data deletion</a>
         </nav>

@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { PrivyClient } from "@privy-io/node";
+import { mainnetPolicyRules } from "../src/server/stocks/mainnet-policy";
 type PolicyCreateParams = Parameters<ReturnType<PrivyClient["policies"]>["create"]>[0];
 
 // Explicit setup command only. Creates an unattached policy; never sends a transaction.
@@ -14,7 +15,13 @@ async function main() {
     console.log("Mainnet policy already configured; no changes made.");
     return;
   }
-  const raw = readFileSync(resolve("../../docs/privy-mainnet-policy.json"), "utf8");
+  // The policy is generated from the configured BNB Chain token list (27 stock variants + USDT).
+  const raw = JSON.stringify({
+    name: "Sharebloom BNB Chain trades",
+    version: "1.0",
+    chain_type: "ethereum",
+    rules: mainnetPolicyRules(),
+  });
   const template = JSON.parse(raw) as PolicyCreateParams;
   const digest = createHash("sha256")
     .update(appId + owner + raw)
@@ -44,7 +51,7 @@ async function main() {
     const policy = await client.policies().create({
       ...template,
       owner_id: owner,
-      idempotency_key: `steward-mainnet-policy-${digest}`,
+      idempotency_key: `sharebloom-bsc-policy-${digest}`,
     });
     state.id = policy.id;
     writeFileSync(statePath, JSON.stringify(state), { mode: 0o600 });

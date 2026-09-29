@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 import "./globals.css";
 export const metadata: Metadata = {
-  title: "Steward — Buy stocks by texting on WhatsApp",
+  title: "Sharebloom — Buy tokenized US stocks on WhatsApp",
   description:
-    "Trade Apple, NVIDIA and Tesla stock tokens with USDG on Robinhood Chain, just by chatting on WhatsApp. Powered by SERV Reasoning.",
+    "Buy Apple, Tesla, NVIDIA and more with USDT on BNB Chain, just by chatting on WhatsApp. Sharebloom compares bStocks, Ondo and xStocks and trades the fairest price.",
 };
 export default function Layout({ children }: { children: React.ReactNode }) {
   return (
