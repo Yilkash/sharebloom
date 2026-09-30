@@ -7,7 +7,20 @@
   --wa: #25d366;
   --line: #e2e8df;
   --soft: #eef3ea;
-  background: #f7f8f4;
+  --bg: #f7f8f4;
+  --surface: white;
+  --nav-bg: rgba(247, 248, 244, 0.86);
+  --accent: #4d7f2a;
+  --step: #b7c7b0;
+  --good-line: #6fbf73;
+  --good-bg: #f1faf0;
+  --good-ink: #2f7a32;
+  --bad-line: #e8a0a0;
+  --bad-bg: #fdf1f1;
+  --bad-ink: #b3261e;
+  --frame: var(--deep);
+  --stat: var(--green);
+  background: var(--bg);
   color: var(--ink);
   font-family: "DM Sans", sans-serif;
   font-size: 16px;
@@ -43,7 +56,7 @@
   justify-content: space-between;
   gap: 16px;
   padding: 14px max(16px, calc((100% - 1160px) / 2));
-  background: rgba(247, 248, 244, 0.86);
+  background: var(--nav-bg);
   backdrop-filter: blur(10px);
   border-bottom: 1px solid var(--line);
 }
@@ -111,7 +124,7 @@
 .secondary {
   padding: 15px 22px;
   border: 1px solid var(--line);
-  background: white;
+  background: var(--surface);
 }
 
 .navCta:hover,
@@ -132,7 +145,7 @@
 
 .eyebrow {
   margin: 0 0 14px;
-  color: #4d7f2a;
+  color: var(--accent);
   font-size: 13px;
   font-weight: 700;
   letter-spacing: 0.14em;
@@ -170,7 +183,7 @@
   position: absolute;
   width: 270px;
   border-radius: 28px;
-  border: 6px solid var(--deep);
+  border: 6px solid var(--frame);
   box-shadow: 0 30px 60px rgba(12, 31, 24, 0.25);
 }
 
@@ -200,7 +213,7 @@
 
 .stats div {
   padding: 26px 24px;
-  background: white;
+  background: var(--surface);
 }
 
 .stats b {
@@ -208,7 +221,7 @@
   font-family: "Manrope", sans-serif;
   font-size: 38px;
   line-height: 1.1;
-  color: var(--green);
+  color: var(--stat);
 }
 
 .stats span {
@@ -240,7 +253,7 @@
   padding: 12px 16px;
   border: 1px solid var(--line);
   border-radius: 12px;
-  background: white;
+  background: var(--surface);
   font-family: ui-monospace, "SF Mono", Menlo, monospace;
   font-size: 15px;
 }
@@ -261,7 +274,7 @@
 
 .card {
   border: 1px solid var(--line);
-  background: white;
+  background: var(--surface);
   color: var(--green);
 }
 
@@ -289,7 +302,7 @@
   position: absolute;
   top: 18px;
   right: 20px;
-  color: #b7c7b0;
+  color: var(--step);
   font-family: "Manrope", sans-serif;
   font-weight: 800;
   font-size: 26px;
@@ -337,7 +350,7 @@
   padding: 18px 22px;
   border: 1px solid var(--line);
   border-radius: 14px;
-  background: white;
+  background: var(--surface);
   font-weight: 600;
 }
 
@@ -345,7 +358,7 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  color: #3d7a1f;
+  color: var(--accent);
 }
 
 .proof code {
@@ -492,7 +505,7 @@
   padding: 16px 20px;
   border: 1px solid var(--line);
   border-radius: 14px;
-  background: white;
+  background: var(--surface);
 }
 
 .comparison code {
@@ -506,12 +519,12 @@
 }
 
 .best {
-  border-color: #6fbf73 !important;
-  background: #f1faf0 !important;
+  border-color: var(--good-line) !important;
+  background: var(--good-bg) !important;
 }
 
 .best b {
-  color: #2f7a32;
+  color: var(--good-ink);
 }
 
 .ok b {
@@ -519,12 +532,12 @@
 }
 
 .bad {
-  border-color: #e8a0a0 !important;
-  background: #fdf1f1 !important;
+  border-color: var(--bad-line) !important;
+  background: var(--bad-bg) !important;
 }
 
 .bad b {
-  color: #b3261e;
+  color: var(--bad-ink);
 }
 
 .note {
@@ -557,7 +570,7 @@
 .shots img {
   display: block;
   width: 100%;
-  border: 5px solid var(--deep);
+  border: 5px solid var(--frame);
   border-radius: 22px;
   box-shadow: 0 18px 40px rgba(12, 31, 24, 0.18);
 }
@@ -580,4 +593,72 @@
     flex-direction: column;
     align-items: flex-start;
   }
+}
+
+/* Dark mode: the toggle sets data-theme on <html>; without a choice, follow the system. */
+:global(html[data-theme="dark"]) .page {
+  --ink: #e6efe9;
+  --muted: #9fb2a7;
+  --line: #25392f;
+  --soft: #172a22;
+  --bg: #0b1511;
+  --surface: #13211b;
+  --nav-bg: rgba(11, 21, 17, 0.86);
+  --accent: #9bd46f;
+  --step: #3a5446;
+  --good-line: #3f8f47;
+  --good-bg: #122a18;
+  --good-ink: #86dc8f;
+  --bad-line: #8a3a3a;
+  --bad-bg: #2d1414;
+  --bad-ink: #ff8a80;
+  --frame: #2c4a3d;
+  --stat: #9bd46f;
+}
+
+@media (prefers-color-scheme: dark) {
+  :global(html:not([data-theme="light"])) .page {
+    --ink: #e6efe9;
+    --muted: #9fb2a7;
+    --line: #25392f;
+    --soft: #172a22;
+    --bg: #0b1511;
+    --surface: #13211b;
+    --nav-bg: rgba(11, 21, 17, 0.86);
+    --accent: #9bd46f;
+    --step: #3a5446;
+    --good-line: #3f8f47;
+    --good-bg: #122a18;
+    --good-ink: #86dc8f;
+    --bad-line: #8a3a3a;
+    --bad-bg: #2d1414;
+    --bad-ink: #ff8a80;
+    --frame: #2c4a3d;
+    --stat: #9bd46f;
+  }
+}
+
+.navEnd {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.themeToggle {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--ink);
+  cursor: pointer;
+}
+
+/* Beats the global button:hover background from the testnet app's styles. */
+.page .themeToggle:hover:not(:disabled) {
+  background: var(--soft);
+  transform: translateY(-1px);
 }

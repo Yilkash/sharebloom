@@ -13,6 +13,7 @@ import {
 import { publicStats } from "@/server/public-stats";
 import { MAINNET_STOCK_SYMBOLS } from "@/server/networks/chain";
 import styles from "./landing.module.css";
+import { ThemeToggle } from "./theme-toggle";
 
 export const dynamic = "force-dynamic";
 
@@ -116,9 +117,12 @@ export default function Landing() {
           <a href="#proof">Trades</a>
           <a href={GITHUB}>GitHub</a>
         </nav>
-        <a className={styles.navCta} href={WHATSAPP}>
-          <MessageCircle size={16} /> Chat now
-        </a>
+        <div className={styles.navEnd}>
+          <ThemeToggle />
+          <a className={styles.navCta} href={WHATSAPP}>
+            <MessageCircle size={16} /> Chat now
+          </a>
+        </div>
       </header>
 
       <main className={styles.main}>
