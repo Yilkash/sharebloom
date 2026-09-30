@@ -169,6 +169,7 @@ The code is in [`stock-routing.ts`](apps/web/src/server/stocks/stock-routing.ts)
 | Pinned router           | The KyberSwap router and executor are pinned by bytecode hash; calldata is decoded and matched to the review.                          |
 | Exact, expiring reviews | Minimum received and maximum fee are shown. A review expires after 4 minutes and confirms once.                                        |
 | Trade cap               | `MAINNET_MAX_USDT_PER_TRADE` limits each trade, up to a hard ceiling of 1,000 USDT.                                                    |
+| Welcome gas top-up      | One 0.0002 BNB top-up per new wallet holding USDT, from a wallet whose Privy policy caps each send at 0.0002 BNB, with a daily limit.  |
 | Unknown outcomes        | A durable runner reconciles every broadcast by its receipt and never retries a trade blindly.                                          |
 
 ## 🏗️ Architecture
@@ -244,14 +245,14 @@ See [`docs/SETUP.md`](docs/SETUP.md) for every environment variable.
 ```bash
 npm run format:check
 npm run typecheck
-npm test          # 76 tests
+npm test          # 80 tests
 npm run build
 ```
 
 ## ⚠️ Limitations
 
 - Stock tokens track the underlying share price. They are not direct share ownership, and each issuer has its own terms.
-- Users need a little BNB for gas alongside their USDT.
+- Users need a little BNB for gas. New users get a one-time 0.0002 BNB welcome top-up (about 6 trades) once they hold USDT; after that they add their own.
 - The 2% fairness band is one fixed setting, not tuned per stock.
 - Binance's reference price is the source of truth. If it is unavailable, Sharebloom refuses to trade rather than guess.
 
