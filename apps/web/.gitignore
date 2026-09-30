@@ -10,3 +10,4 @@ next-env.d.ts
 
 # Local mainnet setup recovery record
 .mainnet-policy-setup.json
+.gas-wallet-setup.json

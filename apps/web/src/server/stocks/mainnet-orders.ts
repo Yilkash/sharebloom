@@ -12,6 +12,7 @@ import {
   type MainnetPlan,
 } from "./mainnet-trade";
 import { MAINNET_EXECUTION_READY, MAINNET_QUOTE, type MainnetStock } from "../networks/chain";
+import { gasTopupConfig, GAS_TOPUP_DEFAULT_WEI, welcomeGasTopup } from "./gas-topup";
 export const orderDigest = (s: string) => createHash("sha256").update(s).digest("hex");
 export type MainnetWallet = {
   account_id: string;
@@ -45,6 +46,14 @@ export function migrateMainnetOrders(db: DatabaseSync) {
   CREATE UNIQUE INDEX IF NOT EXISTS wa_mainnet_one_active ON wa_mainnet_orders(account_id) WHERE state IN ('review','queued','running','unknown');
   CREATE TABLE IF NOT EXISTS wa_mainnet_steps(order_id TEXT NOT NULL,position INTEGER NOT NULL,state TEXT NOT NULL,reference_id TEXT NOT NULL UNIQUE,idempotency_key TEXT NOT NULL UNIQUE,nonce INTEGER,tx_hash TEXT,PRIMARY KEY(order_id,position));`);
 }
+const topupNote = () =>
+  `🎁 Welcome gift: I added ${formatEther(gasTopupConfig()?.amount ?? GAS_TOPUP_DEFAULT_WEI)} BNB to your wallet to cover network fees for your first few trades.`;
+function withNote<T>(reply: T, note: string): T {
+  const r = reply as { text?: { body: string }; interactive?: { body?: { text: string } } };
+  if (r.text) r.text.body = `${note}\n\n${r.text.body}`;
+  else if (r.interactive?.body) r.interactive.body.text = `${note}\n\n${r.interactive.body.text}`;
+  return reply;
+}
 export function mainnetWallet(db: DatabaseSync, account: string) {
   return db
     .prepare(
@@ -74,7 +83,8 @@ export async function mainnetTradeReviewReply(
   side: "buy" | "sell",
   amount: string,
   transferTo?: `0x${string}`,
-) {
+  afterTopup = false,
+): Promise<ReturnType<typeof text> | { type: "interactive"; interactive: unknown }> {
   if (!MAINNET_EXECUTION_READY || process.env.MAINNET_STOCK_TRADING_ENABLED !== "true")
     return text("Mainnet trading setup is still pending. You can request a price preview now.");
   const wallet = mainnetWallet(db, account);
@@ -178,6 +188,35 @@ export async function mainnetTradeReviewReply(
     };
   } catch (error) {
     const code = error instanceof Error ? error.message : "";
+    if (code === "insufficient_eth_for_network_fee" && !afterTopup) {
+      const topup = await welcomeGasTopup(db, account, getAddress(wallet.address)).catch(
+        (e: unknown) => {
+          console.warn("Gas top-up check failed", e instanceof Error ? e.name : "unknown");
+          return "skipped" as const;
+        },
+      );
+      if (topup === "pending")
+        return text(
+          `${topupNote()}
+
+It’s still arriving on BNB Chain. Please send your request again in a minute. Nothing else was sent.`,
+        );
+      if (topup === "sent") {
+        const reply = await mainnetTradeReviewReply(
+          db,
+          key,
+          account,
+          phone,
+          messageId,
+          symbol,
+          side,
+          amount,
+          transferTo,
+          true,
+        );
+        return withNote(reply, topupNote());
+      }
+    }
     const reasons: Record<string, string> = {
       insufficient_tokens: "Your wallet doesn’t have enough of the input token.",
       insufficient_eth_for_network_fee: "Your wallet needs more BNB for the reviewed network fee.",
