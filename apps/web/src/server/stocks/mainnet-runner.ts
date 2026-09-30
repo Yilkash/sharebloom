@@ -10,6 +10,7 @@ import {
   parseEventLogs,
   formatUnits,
   formatEther,
+  TransactionReceiptNotFoundError,
   type Hex,
 } from "viem";
 import {
@@ -37,6 +38,8 @@ import {
   unsentStepCanClose,
   type PrivyReferenceTransaction,
 } from "./unsent-step";
+
+const AWAITING_CONFIRMATIONS = "awaiting_confirmations";
 
 type Step = {
   position: number;
@@ -97,14 +100,14 @@ export async function processMainnetTrade(
       order.reply_until,
     );
   };
-  const finish = (state: string, error: string | null, body?: string) => {
+  const finish = (state: string, error: string | null, body?: string, delay = 15000) => {
     db.exec("BEGIN IMMEDIATE");
     try {
       const changed = db
         .prepare(
           "UPDATE wa_mainnet_orders SET state=?,error=?,lease=NULL,lease_until=NULL,next_check=? WHERE id=? AND lease=?",
         )
-        .run(state, error, Date.now() + 15000, order.id, lease);
+        .run(state, error, Date.now() + delay, order.id, lease);
       if (changed.changes && body) notify(state, body);
       db.exec("COMMIT");
     } catch (e) {
@@ -347,11 +350,8 @@ export async function processMainnetTrade(
       rpc.getBlockNumber(),
     ]);
     const block = await rpc.getBlock({ blockNumber: receipt.blockNumber });
-    ensure(
-      head >= receipt.blockNumber + 12n &&
-        block.hash === receipt.blockHash &&
-        tx.blockHash === receipt.blockHash,
-    );
+    if (head < receipt.blockNumber + 12n) throw Error(AWAITING_CONFIRMATIONS);
+    ensure(block.hash === receipt.blockHash && tx.blockHash === receipt.blockHash);
     ensure(
       same(tx.from, p.wallet) &&
         tx.to &&
@@ -429,6 +429,24 @@ export async function processMainnetTrade(
       throw e;
     }
   } catch (error) {
+    const stillPending = Date.now() - (order.confirmed_at ?? now) > 60000;
+    // A mined-but-shallow or not-yet-mined transaction is the normal wait, not a failure.
+    // BNB Chain adds a block about every second, so check again soon.
+    if (
+      submitted &&
+      (error instanceof TransactionReceiptNotFoundError ||
+        (error instanceof Error && error.message === AWAITING_CONFIRMATIONS))
+    ) {
+      finish(
+        "unknown",
+        "reconciliation_pending",
+        stillPending
+          ? "Your mainnet transaction is still being checked. Don’t resubmit. Ask for recent activity."
+          : undefined,
+        3000,
+      );
+      return;
+    }
     console.warn("Mainnet order step stopped", {
       order: order.id.slice(0, 8),
       submitted,
@@ -439,7 +457,7 @@ export async function processMainnetTrade(
       finish(
         "unknown",
         "reconciliation_pending",
-        Date.now() - (order.confirmed_at ?? now) > 60000
+        stillPending
           ? "Your mainnet transaction is still being checked. Don’t resubmit. Ask for recent activity."
           : undefined,
       );
