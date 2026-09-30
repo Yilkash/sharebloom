@@ -19,7 +19,7 @@ for (const name of ["Apple", "apples", "Apple's", "Apple’s", "AAPL"]) {
     });
     try {
       migrateAccounts(db);
-      const input = `I want ${name} shares worth 0.2 usdg`;
+      const input = `I want to buy ${name} token with 0.2 usdt`;
       await runAssistantTool(
         db,
         key,
@@ -49,6 +49,40 @@ for (const name of ["Apple", "apples", "Apple's", "Apple’s", "AAPL"]) {
     }
   });
 }
+
+test("a sell for USDT keeps the stock quantity as its unit", async () => {
+  const db = new DatabaseSync(":memory:");
+  const enabled = process.env.MAINNET_STOCK_TRADING_ENABLED;
+  process.env.MAINNET_STOCK_TRADING_ENABLED = "false";
+  mock.method(globalThis, "fetch", async () => {
+    throw Error("unexpected network access");
+  });
+  try {
+    migrateAccounts(db);
+    const key = Buffer.alloc(32, 3);
+    const input = "Sell 0.001 Apple tokens for USDT";
+    await runAssistantTool(
+      db,
+      key,
+      "test-account",
+      "15550001111",
+      "message",
+      "consent",
+      input,
+      input,
+      "prepare_mainnet_stock_trade",
+      { symbol: "AAPL", side: "sell", amount: "0.001" },
+    );
+    const draft = currentTask(db, key, "test-account", "consent");
+    assert.equal(draft?.side, "sell");
+    assert.equal(draft?.amount, "0.001");
+    assert.equal(draft?.unit, "AAPL");
+  } finally {
+    db.close();
+    if (enabled === undefined) delete process.env.MAINNET_STOCK_TRADING_ENABLED;
+    else process.env.MAINNET_STOCK_TRADING_ENABLED = enabled;
+  }
+});
 
 test("aliases preserve boundaries and identify ambiguous multiple stocks", () => {
   assert.deepEqual(mainnetStockMentions("pineapples Appleton AAPLs TeslaXYZ"), []);

@@ -439,7 +439,8 @@ export async function runAssistantTool(
     }
     delete draft.priceScope;
     if (!draft.unit && draft.side) draft.unit = draft.side === "buy" ? "USDT" : symbol;
-    if (/\b(?:demo\s*usd|dusd|usdc|usdt|dollars?|usd|eth)\b/i.test(input))
+    // USDT is the trading currency; other currency names must not become a USDT budget.
+    if (/\b(?:demo\s*usd|dusd|usdc|usdg|dollars?|usd|eth|bnb)\b/i.test(input))
       draft.unit = "unsupported";
     save(draft);
     if (!symbol) return text(`Which stock: ${mainnetStockChoices()}?`);
