@@ -18,6 +18,7 @@ export const dynamic = "force-dynamic";
 
 const WHATSAPP = "https://wa.me/2349032729156?text=Hi";
 const GITHUB = "https://github.com/Yilkash/sharebloom";
+const tx = (hash: string) => `https://bscscan.com/tx/${hash}`;
 
 const examples = [
   "Buy Apple with 5 USDT",
@@ -81,6 +82,22 @@ const comparison = [
   { token: "AAPLx", issuer: "xStocks", result: "Rejected: 509% above fair price", tone: "bad" },
 ] as const;
 
+// Real trades from a Sharebloom wallet on BNB Chain, 30 September 2026.
+const proof = [
+  {
+    label: "Bought Apple with 1 USDT · bStocks (AAPLB) chosen",
+    hash: "0xcb3b688dfc80bc9ee262243c169788831b6dc683107ee3df63f127433f749b98",
+  },
+  {
+    label: "Bought Apple with 1 USDT · Ondo (AAPLon) chosen",
+    hash: "0x03842758956980f230449537deb341695ebf898803ad66501bae69d867e2c489",
+  },
+  {
+    label: "Sold 0.003 Apple for 1.0098 USDT · bStocks (AAPLB)",
+    hash: "0xa0eb0b1ca8dc4be933e320704a6a3f732e29258464ab7fcc77e38bebb9d51fdc",
+  },
+];
+
 export default function Landing() {
   const stats = publicStats();
   return (
@@ -96,6 +113,7 @@ export default function Landing() {
           <a href="#how">How it works</a>
           <a href="#fair-price">Fair price</a>
           <a href="#safety">Safety</a>
+          <a href="#proof">Trades</a>
           <a href={GITHUB}>GitHub</a>
         </nav>
         <a className={styles.navCta} href={WHATSAPP}>
@@ -123,39 +141,32 @@ export default function Landing() {
               </a>
             </div>
           </div>
-          <div className={styles.phoneMock} aria-label="Example Sharebloom conversation">
-            <div className={styles.phoneHeader}>
-              <img className={styles.brandMark} src="/images/sharebloom-logo.png" alt="" />
-              Sharebloom
-            </div>
-            <div className={styles.chat}>
-              <p className={styles.me}>Buy Apple with 5 USDT</p>
-              <p className={styles.bot}>
-                <b>Buy Apple (AAPL)</b>
-                <br />
-                BNB Chain · Issuer: bStocks (AAPLB)
-                <br />
-                best fair price of 3
-                <br />
-                <br />
-                Pay: 5 USDT
-                <br />
-                Receive: ≈ 0.01482 AAPLB
-                <br />
-                <b>[ Confirm buy ]</b>
-              </p>
-              <p className={styles.me}>Confirm buy</p>
-              <p className={styles.bot}>Trade complete ✅ BscScan receipt ↗</p>
-            </div>
+          <div className={styles.phones}>
+            <img
+              src="/images/whatsapp-sell-receipt.jpg"
+              alt="Sharebloom in WhatsApp confirming an Apple sell with a BscScan receipt"
+              className={styles.phoneBack}
+            />
+            <img
+              src="/images/whatsapp-buy-review.jpg"
+              alt="Sharebloom in WhatsApp reviewing an Apple buy through Ondo, the best fair price of 3"
+              className={styles.phoneFront}
+            />
           </div>
         </section>
 
         <section className={styles.stats} aria-label="Sharebloom at a glance">
           {stats && (
-            <div>
-              <b>{stats.users}</b>
-              <span>users with their own wallet</span>
-            </div>
+            <>
+              <div>
+                <b>{stats.users}</b>
+                <span>users with their own wallet</span>
+              </div>
+              <div>
+                <b>{stats.confirmed}</b>
+                <span>confirmed trades and payments on BNB Chain</span>
+              </div>
+            </>
           )}
           <div>
             <b>{MAINNET_STOCK_SYMBOLS.length}</b>
@@ -178,6 +189,41 @@ export default function Landing() {
             {examples.map((text) => (
               <code key={text}>{text}</code>
             ))}
+          </div>
+        </section>
+
+        <section className={styles.section}>
+          <p className={styles.eyebrow}>Live on WhatsApp</p>
+          <h2>Real screens, real money.</h2>
+          <div className={styles.shots}>
+            <figure>
+              <img
+                src="/images/whatsapp-prices.jpg"
+                alt="Sharebloom listing Binance reference prices for all nine stocks"
+              />
+              <figcaption>Live Binance prices for all nine stocks</figcaption>
+            </figure>
+            <figure>
+              <img
+                src="/images/whatsapp-buy-review.jpg"
+                alt="Sharebloom reviewing a 1 USDT Apple buy through Ondo"
+              />
+              <figcaption>Three issuers compared, Ondo was fairest</figcaption>
+            </figure>
+            <figure>
+              <img
+                src="/images/whatsapp-sell-review.jpg"
+                alt="Sharebloom understanding a misspelled sell request and reviewing it"
+              />
+              <figcaption>“Sell 0.003 appl shares” understood</figcaption>
+            </figure>
+            <figure>
+              <img
+                src="/images/whatsapp-sell-receipt.jpg"
+                alt="Sharebloom confirming a completed sell with a BscScan link"
+              />
+              <figcaption>Receipt with a BscScan link</figcaption>
+            </figure>
           </div>
         </section>
 
@@ -230,6 +276,24 @@ export default function Landing() {
               </article>
             ))}
           </div>
+        </section>
+
+        <section id="proof" className={styles.section}>
+          <p className={styles.eyebrow}>Don’t trust us, check the chain</p>
+          <h2>Real trades on BNB Chain</h2>
+          <ul className={styles.proof}>
+            {proof.map(({ label, hash }) => (
+              <li key={hash}>
+                <span>{label}</span>
+                <a href={tx(hash)}>
+                  <code>
+                    {hash.slice(0, 10)}…{hash.slice(-6)}
+                  </code>
+                  <ArrowUpRight size={15} />
+                </a>
+              </li>
+            ))}
+          </ul>
         </section>
 
         <section className={styles.final}>
