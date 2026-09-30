@@ -13,6 +13,7 @@ Sharebloom compares **bStocks, Ondo and xStocks** on every trade and only fills 
 <br/>
 
 [![Chat on WhatsApp](https://img.shields.io/badge/Chat_on_WhatsApp-+234_903_272_9156-25D366?style=for-the-badge&logo=whatsapp&logoColor=white)](https://wa.me/2349032729156?text=Hi)
+[![Website](https://img.shields.io/badge/Website-sharebloom--production.up.railway.app-F0B90B?style=for-the-badge&logo=googlechrome&logoColor=white)](https://sharebloom-production.up.railway.app)
 
 ![BNB Chain](https://img.shields.io/badge/BNB_Chain-mainnet_56-F0B90B?style=flat-square)
 ![Issuers](https://img.shields.io/badge/issuers-bStocks_·_Ondo_·_xStocks-0A84FF?style=flat-square)
@@ -24,6 +25,33 @@ Sharebloom compares **bStocks, Ondo and xStocks** on every trade and only fills 
 </div>
 
 ---
+
+## 📱 See it in action
+
+<table>
+  <tr>
+    <td align="center" width="25%"><img src="apps/web/public/images/whatsapp-prices.jpg" alt="Live Binance prices for all nine stocks" width="200"/></td>
+    <td align="center" width="25%"><img src="apps/web/public/images/whatsapp-buy-review.jpg" alt="An Apple buy review where Ondo was the best fair price of three" width="200"/></td>
+    <td align="center" width="25%"><img src="apps/web/public/images/whatsapp-sell-review.jpg" alt="A misspelled sell request understood and reviewed" width="200"/></td>
+    <td align="center" width="25%"><img src="apps/web/public/images/whatsapp-sell-receipt.jpg" alt="A completed sell with a BscScan link" width="200"/></td>
+  </tr>
+  <tr>
+    <td align="center"><b>Live prices</b><br/>Binance reference prices for all nine stocks</td>
+    <td align="center"><b>Best of three</b><br/>Ondo gave the most Apple this time</td>
+    <td align="center"><b>Plain language</b><br/>"Sell 0.003 appl shares" understood</td>
+    <td align="center"><b>Real receipt</b><br/>Settled on BNB Chain with a BscScan link</td>
+  </tr>
+</table>
+
+### 🔗 Real trades on BNB Chain
+
+| Trade                            | Issuer chosen   | Transaction                                                                                                      |
+| -------------------------------- | --------------- | ---------------------------------------------------------------------------------------------------------------- |
+| Bought Apple with 1 USDT         | bStocks (AAPLB) | [`0xcb3b688d…749b98`](https://bscscan.com/tx/0xcb3b688dfc80bc9ee262243c169788831b6dc683107ee3df63f127433f749b98) |
+| Bought Apple with 1 USDT         | Ondo (AAPLon)   | [`0x03842758…e2c489`](https://bscscan.com/tx/0x03842758956980f230449537deb341695ebf898803ad66501bae69d867e2c489) |
+| Sold 0.003 Apple for 1.0098 USDT | bStocks (AAPLB) | [`0xa0eb0b1c…d51fdc`](https://bscscan.com/tx/0xa0eb0b1ca8dc4be933e320704a6a3f732e29258464ab7fcc77e38bebb9d51fdc) |
+
+The same message bought Apple from two different issuers a few minutes apart, because the fairest price moved.
 
 ## 💡 The problem
 
@@ -216,7 +244,7 @@ See [`docs/SETUP.md`](docs/SETUP.md) for every environment variable.
 ```bash
 npm run format:check
 npm run typecheck
-npm test          # 74 tests
+npm test          # 76 tests
 npm run build
 ```
 
