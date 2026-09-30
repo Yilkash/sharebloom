@@ -116,6 +116,9 @@ test("aliases preserve boundaries and identify ambiguous multiple stocks", () =>
   assert.deepEqual(mainnetStockMentions("pineapples Appleton AAPLs TeslaXYZ"), []);
   assert.deepEqual(mainnetStockMentions("Apple and Tesla"), ["AAPL", "TSLA"]);
   assert.deepEqual(mainnetStockMentions("NVIDIA's shares"), ["NVDA"]);
+  assert.deepEqual(mainnetStockMentions("Sell 0.003 appl shares"), ["AAPL"]);
+  assert.deepEqual(mainnetStockMentions("buy telsa and nvdia"), ["NVDA", "TSLA"]);
+  assert.deepEqual(mainnetStockMentions("application applause fbi"), []);
 });
 
 const query = new URLSearchParams({ amountIn: "200000" });

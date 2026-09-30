@@ -1,15 +1,16 @@
 import { MAINNET_STOCK_SYMBOLS, type MainnetStock } from "../networks/chain";
 
 // Explicit supported aliases only; never fuzzy-match an unknown company for a trade.
+// Common misspellings are listed by hand, and every review shows the company name.
 const names: Record<MainnetStock, string[]> = {
-  AAPL: ["apple"],
-  NVDA: ["nvidia"],
-  TSLA: ["tesla"],
-  MSFT: ["microsoft"],
-  GOOGL: ["alphabet", "google"],
-  AMZN: ["amazon"],
-  META: ["meta", "facebook"],
-  SPY: ["s&p 500", "s&p500", "s&p", "sp500"],
+  AAPL: ["apple", "appl", "aple", "appel"],
+  NVDA: ["nvidia", "nvdia", "nvida", "nvidea"],
+  TSLA: ["tesla", "telsa", "tesler"],
+  MSFT: ["microsoft", "microsft", "mircosoft", "micosoft"],
+  GOOGL: ["alphabet", "google", "goog"],
+  AMZN: ["amazon", "amazn", "amazone"],
+  META: ["meta", "facebook", "fb"],
+  SPY: ["s&p 500", "s&p500", "s&p", "sp500", "snp 500", "snp500"],
   QQQ: ["nasdaq-100", "nasdaq 100", "nasdaq100", "nasdaq"],
 };
 const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/ /g, "\\s*");
