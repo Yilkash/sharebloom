@@ -84,6 +84,34 @@ test("a sell for USDT keeps the stock quantity as its unit", async () => {
   }
 });
 
+test("a USDT payment request is not asked to restate its currency", async () => {
+  const db = new DatabaseSync(":memory:");
+  mock.method(globalThis, "fetch", async () => {
+    throw Error("unexpected network access");
+  });
+  mock.method(console, "warn", () => undefined);
+  try {
+    migrateAccounts(db);
+    const key = Buffer.alloc(32, 3);
+    const input = "Send 1 usdt to 0xef811f37adb712258e1d04f41316285099ffb379";
+    const reply = await runAssistantTool(
+      db,
+      key,
+      "test-account",
+      "15550001111",
+      "message",
+      "consent",
+      input,
+      input,
+      "prepare_payment",
+      { recipient: "0xef811f37adb712258e1d04f41316285099ffb379", amount: "1" },
+    ).catch((e: unknown) => e);
+    assert.doesNotMatch(JSON.stringify(reply), /What USDT amount/);
+  } finally {
+    db.close();
+  }
+});
+
 test("aliases preserve boundaries and identify ambiguous multiple stocks", () => {
   assert.deepEqual(mainnetStockMentions("pineapples Appleton AAPLs TeslaXYZ"), []);
   assert.deepEqual(mainnetStockMentions("Apple and Tesla"), ["AAPL", "TSLA"]);

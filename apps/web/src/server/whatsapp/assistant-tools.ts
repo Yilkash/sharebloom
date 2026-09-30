@@ -684,7 +684,7 @@ export async function runAssistantTool(
   if (!/\b(?:testnet|demo\s*usd|dusd|46630)\b/i.test(input) && task?.kind !== "payment") {
     if ((a.recipient && !literal(a.recipient)) || (a.amount && !amountLiteral(a.amount)))
       return text("Please give the recipient and exact USDT amount.");
-    if (/\b(?:usdc|usdt|eth|btc|eur|gbp)\b/i.test(input))
+    if (/\b(?:usdc|usdg|eth|bnb|btc|eur|gbp)\b/i.test(input))
       return text("Payments support USDT on BNB Chain. What USDT amount would you like to send?");
     const draft: Task = {
       ...(task?.kind === "mainnet_payment" ? task : {}),
