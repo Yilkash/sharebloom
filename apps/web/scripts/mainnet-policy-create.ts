@@ -76,6 +76,10 @@ main().catch((error: unknown) => {
   if (typeof e.status === "number") console.error("Provider HTTP status:", e.status);
   if (typeof e.error?.code === "string" && /^[a-zA-Z0-9_ -]{1,100}$/.test(e.error.code))
     console.error("Provider error code:", e.error.code);
+  // Validation messages describe the rejected field; they never contain credentials.
+  const detail = (error as { message?: unknown }).message;
+  if (typeof e.status === "number" && typeof detail === "string")
+    console.error("Provider message:", detail.replace(/[^\x20-\x7e]/g, "").slice(0, 600));
   console.error(
     "Policy setup did not finish. No transactions were submitted. If .mainnet-policy-setup.json has no ID, check Privy before retrying; the request may have succeeded.",
   );
