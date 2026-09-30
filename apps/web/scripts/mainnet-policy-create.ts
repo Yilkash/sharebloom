@@ -76,6 +76,13 @@ main().catch((error: unknown) => {
   if (typeof e.status === "number") console.error("Provider HTTP status:", e.status);
   if (typeof e.error?.code === "string" && /^[a-zA-Z0-9_ -]{1,100}$/.test(e.error.code))
     console.error("Provider error code:", e.error.code);
+  // Our own setup checks throw short snake_case codes.
+  if (
+    typeof e.status !== "number" &&
+    error instanceof Error &&
+    /^[a-z_]{1,60}$/.test(error.message)
+  )
+    console.error("Setup check:", error.message);
   // Validation messages describe the rejected field; they never contain credentials.
   const detail = (error as { message?: unknown }).message;
   if (typeof e.status === "number" && typeof detail === "string")
