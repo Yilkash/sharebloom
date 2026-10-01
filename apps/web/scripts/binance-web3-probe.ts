@@ -31,6 +31,9 @@ const systemLookup = dns.lookup;
   });
 };
 
+// Any wallet works for a read-only quote; RFQ quotes need one as the would-be receiver.
+const PROBE_WALLET = "0xe8a292b0DE557b97423d1B853eb0F6da26bAC2f2";
+
 const trim = (value: unknown, max = 1500) => {
   const text = typeof value === "string" ? value : JSON.stringify(value, null, 1);
   return text.length > max ? `${text.slice(0, max)}… (${text.length} chars)` : text;
@@ -84,9 +87,12 @@ async function main() {
       const kyber = await previewRoute(MAINNET_QUOTE.address, v.address, oneUsdt).catch(
         (e: unknown) => report(e),
       );
-      const binance = await aggregatedQuote(MAINNET_QUOTE.address, v.address, oneUsdt).catch(
-        (e: unknown) => report(e),
-      );
+      const binance = await aggregatedQuote(
+        MAINNET_QUOTE.address,
+        v.address,
+        oneUsdt,
+        PROBE_WALLET,
+      ).catch((e: unknown) => report(e));
       console.log(`\n--- Buy ${v.symbol} with 1 USDT`);
       console.log(
         "KyberSwap:",

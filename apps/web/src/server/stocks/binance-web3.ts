@@ -346,12 +346,16 @@ export async function aggregatedQuote(
   fromToken: string,
   toToken: string,
   amountIn: bigint,
+  wallet: string,
 ): Promise<BinanceBenchmark> {
+  // Stock tokens are quoted by RFQ, which requires the receiving wallet even though the
+  // connectors mark it optional ("userWalletAddress is required for RFQ (Ondo) quote").
   const r = await web3Request("GET", "/api/v1/dex/aggregator/quote", {
     binanceChainId: "56",
     amount: amountIn.toString(),
     fromTokenAddress: fromToken,
     toTokenAddress: toToken,
+    userWalletAddress: wallet,
   });
   const parsed = quoteSchema.safeParse(r.body);
   if (r.status !== 200 || !parsed.success) throw web3Failure(r);

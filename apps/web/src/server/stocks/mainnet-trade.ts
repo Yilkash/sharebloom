@@ -221,7 +221,7 @@ export async function prepareMainnetPlan(
   );
   requireTrade(minimum > 0n && (side !== "sell" || expected <= c.inputCap));
   const benchmarkWork = binanceWeb3Configured()
-    ? aggregatedQuote(input.address, output.address, amountIn).catch((error: unknown) => {
+    ? aggregatedQuote(input.address, output.address, amountIn, wallet).catch((error: unknown) => {
         console.warn("Binance benchmark quote unavailable", web3ErrorLog(error));
         return undefined;
       })

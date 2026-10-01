@@ -196,11 +196,13 @@ test("Binance's aggregated quote is a display-only benchmark for our route", asy
   const usdt = "0x55d398326f99059fF775485246999027B3197955";
   const aaplb = "0x431a3bee82e2ca41e49895cbece5bb0f76a89b7a";
   const oneUsdt = 10n ** 18n;
+  const wallet = "0xe8a292b0DE557b97423d1B853eb0F6da26bAC2f2";
   // Live probe, 1 October 2026: two vendors; the larger output wins.
   t.mock.method(globalThis, "fetch", async (url: string) => {
     const q = new URL(String(url)).searchParams;
     assert.equal(q.get("fromTokenAddress"), usdt);
     assert.equal(q.get("toTokenAddress"), aaplb);
+    assert.equal(q.get("userWalletAddress"), wallet, "RFQ quotes need the receiving wallet");
     return Response.json({
       code: 0,
       data: [
@@ -220,7 +222,7 @@ test("Binance's aggregated quote is a display-only benchmark for our route", asy
   });
   try {
     resetWeb3Pause();
-    const b = await aggregatedQuote(usdt, aaplb, oneUsdt);
+    const b = await aggregatedQuote(usdt, aaplb, oneUsdt, wallet);
     assert.deepEqual(b, { vendor: "LiquidMesh", dex: "Uniswap V4", amountOut: "2984382419713991" });
     // KyberSwap's route for the same buy on 29 September: 0.00296473 AAPLB.
     assert.equal(
@@ -231,7 +233,7 @@ test("Binance's aggregated quote is a display-only benchmark for our route", asy
       describeBenchmark(2984382419713991n, b),
       "✓ Matches or beats Binance’s best quote",
     );
-    await assert.rejects(aggregatedQuote(usdt, aaplb, oneUsdt + 1n), /invalid_response/);
+    await assert.rejects(aggregatedQuote(usdt, aaplb, oneUsdt + 1n, wallet), /invalid_response/);
   } finally {
     resetWeb3Pause();
     process.env = saved;

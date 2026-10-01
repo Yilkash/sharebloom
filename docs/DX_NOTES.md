@@ -66,3 +66,8 @@ error, please retry later` (a server error for a client mistake);
   same key worked from Nigeria. Nothing in the error says which regions are allowed; the
   hackathon Telegram group said to use Asia (Singapore). Retrying per stock after the
   batch failed then produced `429 / 42900 Rate limit exceeded`.
+- **RFQ quotes need a wallet.** `/aggregator/quote` for AAPLon returned `40001
+userWalletAddress is required for RFQ (Ondo) quote`. The connectors mark
+  `userWalletAddress` optional; only its description says it is required for equity/RWA
+  tokens. With it, the quote is a read-only best-execution check. On 1 October, 1 USDT to
+  AAPLB: KyberSwap 0.0030023, Binance 0.0030030 via LiquidMesh (Uniswap V4).
