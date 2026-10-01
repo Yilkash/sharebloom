@@ -71,3 +71,7 @@ userWalletAddress is required for RFQ (Ondo) quote`. The connectors mark
   `userWalletAddress` optional; only its description says it is required for equity/RWA
   tokens. With it, the quote is a read-only best-execution check. On 1 October, 1 USDT to
   AAPLB: KyberSwap 0.0030023, Binance 0.0030030 via LiquidMesh (Uniswap V4).
+- **Ondo RFQ minimum.** With the wallet added, AAPLon quotes for 1 USDT return `40375
+Minimum order amount is 5 USD.` Below $5 the Binance check is skipped for Ondo; KyberSwap
+  still routes the trade. On 1 October, 1 USDT to AAPLB: KyberSwap 0.0030036, Binance
+  0.0030053 via LiquidMesh (Metric), 0.06% apart.
