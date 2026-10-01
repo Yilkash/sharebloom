@@ -18,7 +18,13 @@ import {
   verifiedMainnetRegistry,
 } from "../stocks/mainnet";
 import { text } from "./menu";
-import { binanceWeb3Configured, formatChange24h, marketChanges24h } from "../stocks/binance-web3";
+import {
+  binanceWeb3Configured,
+  companyFacts,
+  formatChange24h,
+  marketChanges24h,
+  sparkline,
+} from "../stocks/binance-web3";
 import {
   mainnetReferencePrice,
   ReferencePriceError,
@@ -90,6 +96,57 @@ export async function mainnetReferencePriceReply(symbol?: MainnetStock, forceRef
       lines.join("\n\n") +
       "\n\nBinance reference prices. Your final quote, including fees, appears before you confirm." +
       "\nReply ‘try again’ to refresh, or ‘all’ for every stock.",
+  );
+}
+
+const usd = (n: number) =>
+  `$${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const bigUsd = (n: number) =>
+  n >= 1e12
+    ? `$${(n / 1e12).toFixed(2)}T`
+    : n >= 1e9
+      ? `$${(n / 1e9).toFixed(2)}B`
+      : `$${(n / 1e6).toFixed(2)}M`;
+
+/** Company facts (Binance RWA Data) and the past week's trend (Binance Market). Display only. */
+export async function stockProfileReply(symbol: MainnetStock) {
+  const asset = MAINNET_ASSETS[symbol];
+  if (!binanceWeb3Configured())
+    return text(`Company details for ${asset.name} aren’t available right now.`);
+  // xStocks are not covered by the keyed API; bStocks first, then Ondo.
+  for (const variant of asset.variants.filter((v) => v.issuer !== "xStocks")) {
+    try {
+      const f = await companyFacts(variant.address);
+      const lines = [`📊 *${asset.name} (${symbol})*`];
+      const last = f.closes.at(-1);
+      if (last !== undefined && f.weekOpen) {
+        const pct = ((last - f.weekOpen) / f.weekOpen) * 100;
+        lines.push(
+          `Past 7 days: ${usd(f.weekOpen)} → ${usd(last)} (${pct >= 0 ? "+" : "−"}${Math.abs(pct).toFixed(2)}%)`,
+          sparkline(f.closes),
+        );
+      }
+      if (f.low52w !== undefined && f.high52w !== undefined)
+        lines.push(`52-week range: ${usd(f.low52w)} – ${usd(f.high52w)}`);
+      if (f.marketCap) lines.push(`Market cap: ${bigUsd(f.marketCap)}`);
+      if (f.pe) lines.push(`P/E (TTM): ${f.pe.toFixed(1)}`);
+      if (f.dividendYield !== undefined)
+        lines.push(`Dividend yield: ${(f.dividendYield * 100).toFixed(2)}%`);
+      if (lines.length === 1) continue;
+      lines.push(
+        "",
+        `Data from Binance for ${variant.symbol}. Not investment advice. Ask for a price or say “Buy ${asset.name} with 5 USDT”.`,
+      );
+      return text(lines.join("\n"));
+    } catch (error) {
+      console.warn("Company facts unavailable", {
+        symbol: variant.symbol,
+        code: error instanceof Error ? error.message : "unknown",
+      });
+    }
+  }
+  return text(
+    `Company details for ${asset.name} aren’t available right now. Please try again shortly.`,
   );
 }
 

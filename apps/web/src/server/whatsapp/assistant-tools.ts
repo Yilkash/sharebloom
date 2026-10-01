@@ -34,6 +34,7 @@ import {
   mainnetReceiveReply,
   mainnetReferencePriceReply,
   mainnetTradingMessage,
+  stockProfileReply,
 } from "./mainnet-stocks";
 import { mainnetReferencePrice, referenceDollars } from "../stocks/reference-price";
 import { formatUnits } from "viem";
@@ -134,6 +135,12 @@ const allAssistantTools = [
     "get_stock_price",
     "Show USD reference prices per BNB Chain stock token with a short update age. Preserve older/saved labels. These are not executable USDT trade quotes. For price questions without a budget or direction: Tesla price, show stock prices. Omit symbol to show all supported stocks. Never creates a trade.",
     { symbol: { type: "string", enum: MAINNET_STOCK_SYMBOLS } },
+  ),
+  tool(
+    "get_stock_profile",
+    "Show company facts for one supported stock: the past 7 days' price trend, 52-week range, market cap, P/E and dividend yield, from Binance. Use for questions like 'tell me about Apple', 'how has Tesla done this week', 'what is Microsoft's P/E'. Read only; never a trade or a quote.",
+    { symbol: { type: "string", enum: MAINNET_STOCK_SYMBOLS } },
+    ["symbol"],
   ),
   tool(
     "list_test_stocks",
@@ -316,6 +323,22 @@ export async function runAssistantTool(
     db.prepare("DELETE FROM wa_contact_sessions WHERE account_id=?").run(account);
     db.prepare("DELETE FROM wa_payment_language_entries WHERE account_id=?").run(account);
     return pay("Cancel") ?? text("Draft cancelled. Nothing was sent.");
+  }
+  if (name === "get_stock_profile") {
+    const a = z
+      .object({ symbol: z.enum(MAINNET_STOCK_SYMBOLS) })
+      .strict()
+      .safeParse(args);
+    const mentions = mainnetStockMentions(input);
+    // The stock must be named in the user's words; the model's choice alone is not enough.
+    const symbol =
+      mentions.length === 1
+        ? mentions[0]
+        : a.success && mainnetStockMentions(evidence).includes(a.data.symbol)
+          ? a.data.symbol
+          : undefined;
+    if (!symbol) return text(`Which stock: ${mainnetStockChoices()}?`);
+    return stockProfileReply(symbol);
   }
   if (
     [

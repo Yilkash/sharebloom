@@ -106,3 +106,57 @@ test("24h change sends the array body Binance expects and formats for chat", asy
     process.env = saved;
   }
 });
+
+test("company facts combine underlying data and daily candles into a chat reply", async (t) => {
+  const saved = { ...process.env };
+  process.env.BINANCE_WEB3_API_KEY = "key";
+  process.env.BINANCE_WEB3_API_SECRET = "secret";
+  const { stockProfileReply } = await import("../src/server/whatsapp/mainnet-stocks");
+  const { sparkline } = await import("../src/server/stocks/binance-web3");
+  // Shapes and values from the live probe on 1 October 2026 (AAPLB).
+  const closes = [342.0795, 339.5916, 341.1391, 338.5816, 328.9617, 334.7943, 333.8145];
+  t.mock.method(globalThis, "fetch", async (url: string) => {
+    if (String(url).includes("/rwa/underlying-market"))
+      return Response.json({
+        code: 0,
+        data: {
+          marketData: {
+            high52W: "345.3400",
+            low52W: "243.4200",
+            marketCap: "4860153823600.00",
+            peRatioTTM: "37.7000",
+            dividendYield: "0.00320000",
+          },
+        },
+      });
+    // Deliberately newest first: the reply must sort by timestamp.
+    return Response.json({
+      code: 0,
+      data: closes
+        .map((c, i) => [
+          i === 0 ? 337.5148 : closes[i - 1],
+          0,
+          0,
+          c,
+          0,
+          1790294400000 + i * 864e5,
+          1,
+        ])
+        .reverse(),
+    });
+  });
+  try {
+    const reply = (await stockProfileReply("AAPL")) as { text: { body: string } };
+    const body = reply.text.body;
+    assert.match(body, /Apple \(AAPL\)/);
+    assert.match(body, /Past 7 days: \$337\.51 → \$333\.81 \(−1\.10%\)/);
+    assert.match(body, /52-week range: \$243\.42 – \$345\.34/);
+    assert.match(body, /Market cap: \$4\.86T/);
+    assert.match(body, /P\/E \(TTM\): 37\.7/);
+    assert.match(body, /Dividend yield: 0\.32%/);
+    assert.ok(body.includes(sparkline(closes)));
+    assert.equal(sparkline([1, 2, 3]), "▁▅█");
+  } finally {
+    process.env = saved;
+  }
+});

@@ -194,3 +194,77 @@ export function formatChange24h(percent: number | undefined) {
   const arrow = percent > 0 ? "▲" : percent < 0 ? "▼" : "•";
   return `${arrow} ${Math.abs(percent).toFixed(2)}% (24h)`;
 }
+
+// ---- RWA Data + Market: company facts and the past week --------------------------------
+
+const optionalDecimal = z
+  .string()
+  .regex(/^-?\d{1,20}(?:\.\d{1,30})?$/)
+  .nullable()
+  .optional();
+const underlyingSchema = z.object({
+  code: z.literal(0),
+  data: z.object({
+    marketData: z.object({
+      high52W: optionalDecimal,
+      low52W: optionalDecimal,
+      marketCap: optionalDecimal,
+      peRatioTTM: optionalDecimal,
+      dividendYield: optionalDecimal,
+    }),
+  }),
+});
+const candleSchema = z.object({
+  code: z.literal(0),
+  data: z.array(z.array(z.number()).min(6)),
+});
+export type CompanyFacts = {
+  high52w?: number;
+  low52w?: number;
+  marketCap?: number;
+  pe?: number;
+  dividendYield?: number;
+  /** Daily closes, oldest first, and the first open of the period. */
+  closes: number[];
+  weekOpen?: number;
+};
+const facts = new Map<string, { at: number; value: CompanyFacts }>();
+const num = (v: string | null | undefined) => (v == null ? undefined : Number(v));
+
+/** Underlying-stock facts (RWA Data) and the last seven daily candles (Market). Display only. */
+export async function companyFacts(address: string): Promise<CompanyFacts> {
+  const key = address.toLowerCase();
+  const saved = facts.get(key);
+  if (saved && Date.now() - saved.at < 5 * 60_000) return saved.value;
+  const query = { binanceChainId: "56", tokenContractAddress: key };
+  const [market, candles] = await Promise.all([
+    web3Request("GET", "/api/v1/dex/market/rwa/underlying-market", query),
+    web3Request("GET", "/api/v1/dex/market/candles", { ...query, bar: "1d", limit: "7" }),
+  ]);
+  const m = underlyingSchema.safeParse(market.body);
+  const c = candleSchema.safeParse(candles.body);
+  if (!m.success && !c.success) throw new BinanceWeb3Error("invalid_response");
+  // Candle: [open, high, low, close, volume, timestamp, count]; sort by time to be safe.
+  const rows = c.success ? [...c.data.data].sort((a, b) => a[5] - b[5]) : [];
+  const d = m.success ? m.data.data.marketData : undefined;
+  const value: CompanyFacts = {
+    high52w: num(d?.high52W),
+    low52w: num(d?.low52W),
+    marketCap: num(d?.marketCap),
+    pe: num(d?.peRatioTTM),
+    dividendYield: num(d?.dividendYield),
+    closes: rows.map((r) => r[3]),
+    weekOpen: rows[0]?.[0],
+  };
+  facts.set(key, { at: Date.now(), value });
+  return value;
+}
+
+/** A one-line chart of closing prices, e.g. "▂▅▆▄▁▃▃". */
+export function sparkline(values: readonly number[]) {
+  if (values.length < 2) return "";
+  const bars = "▁▂▃▄▅▆▇█";
+  const lo = Math.min(...values);
+  const span = Math.max(...values) - lo || 1;
+  return values.map((v) => bars[Math.round(((v - lo) / span) * (bars.length - 1))]).join("");
+}
