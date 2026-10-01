@@ -55,6 +55,24 @@ async function main() {
     return;
   }
   const apple = MAINNET_ASSETS.AAPL.variants;
+  if (process.argv.includes("--smoke")) {
+    // The new features end to end, printing what a WhatsApp user would see.
+    const { rwaTokenQuote } = await import("../src/server/stocks/binance-rwa");
+    const { mainnetReferencePriceReply, stockProfileReply } = await import(
+      "../src/server/whatsapp/mainnet-stocks"
+    );
+    for (const v of apple) {
+      const q = await rwaTokenQuote(v.address);
+      console.log(
+        `${v.symbol}: reference ${Number(q.price) / 1e18} from ${q.source}, open ${q.open}`,
+      );
+    }
+    await new Promise((resolve) => setTimeout(resolve, 1200));
+    console.log("\n--- What are the prices?\n" + (await mainnetReferencePriceReply()).text.body);
+    await new Promise((resolve) => setTimeout(resolve, 1200));
+    console.log("\n--- Tell me about Apple\n" + (await stockProfileReply("AAPL")).text.body);
+    return;
+  }
   if (process.argv.includes("--list")) {
     // Why are some tokens missing from the default list? Try each filter once.
     for (const extra of [
