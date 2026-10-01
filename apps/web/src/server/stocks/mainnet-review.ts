@@ -7,6 +7,7 @@ import {
   type MainnetStock,
 } from "../networks/chain";
 import type { MainnetPlan } from "./mainnet-trade";
+import { describeBenchmark } from "./binance-web3";
 
 // BigInt only: abbreviated outputs round down, displayed fee ceilings round up.
 function shortAmount(raw: string, decimals: number, roundUp = false) {
@@ -43,6 +44,7 @@ export function mainnetTradeReviewText(p: MainnetPlan) {
           `Issuer: ${p.variant.issuer} (${p.variant.symbol})${compared > 1 ? ` · best fair price of ${compared}` : ""}`,
         ]
       : []),
+    ...(p.benchmark ? [describeBenchmark(BigInt(p.expectedOutput), p.benchmark)] : []),
     "",
     `${buy ? "Pay" : "Sell"}: ${formatUnits(BigInt(p.amountIn), 18)} ${input}`,
     `Receive: ≈ ${shortAmount(p.expectedOutput, 18)} ${output}`,
@@ -68,6 +70,14 @@ export function mainnetTradeDetailsText(p: MainnetPlan) {
           "",
           "*Issuers compared against Binance's reference price:*",
           ...p.routing.map((r) => `• ${r}`),
+        ]
+      : []),
+    ...(p.benchmark
+      ? [
+          "",
+          "*Checked against Binance’s aggregator:*",
+          `• Binance best: ${formatUnits(BigInt(p.benchmark.amountOut), 18)} ${output} via ${p.benchmark.vendor}${p.benchmark.dex ? ` (${p.benchmark.dex})` : ""}`,
+          `• Sharebloom route (KyberSwap): ${formatUnits(BigInt(p.expectedOutput), 18)} ${output}`,
         ]
       : []),
     "",

@@ -316,3 +316,63 @@ export function web3ErrorLog(error: unknown) {
     ? { code: error.code, status: error.status ?? null, detail: error.detail ?? null }
     : { code: error instanceof Error ? error.message : "unknown" };
 }
+
+// ---- Trading: aggregated quote as an independent best-execution check ----------------------
+
+const integer = z.string().regex(/^\d{1,78}$/);
+const quoteSchema = z.object({
+  code: z.literal(0),
+  data: z
+    .array(
+      z.object({
+        vendorName: z.string().max(60).nullable().optional(),
+        fromTokenAmount: integer,
+        toTokenAmount: integer,
+        dexRouterList: z
+          .array(z.object({ dexProtocol: z.object({ dexName: z.string().max(60) }).optional() }))
+          .nullable()
+          .optional(),
+      }),
+    )
+    .min(1),
+});
+export type BinanceBenchmark = { vendor: string; dex?: string; amountOut: string };
+
+/**
+ * Binance's best aggregated quote for the same swap. Display only: Sharebloom still executes
+ * the KyberSwap route it has verified, and shows how it compares.
+ */
+export async function aggregatedQuote(
+  fromToken: string,
+  toToken: string,
+  amountIn: bigint,
+): Promise<BinanceBenchmark> {
+  const r = await web3Request("GET", "/api/v1/dex/aggregator/quote", {
+    binanceChainId: "56",
+    amount: amountIn.toString(),
+    fromTokenAddress: fromToken,
+    toTokenAddress: toToken,
+  });
+  const parsed = quoteSchema.safeParse(r.body);
+  if (r.status !== 200 || !parsed.success) throw web3Failure(r);
+  const valid = parsed.data.data.filter((q) => BigInt(q.fromTokenAmount) === amountIn);
+  if (!valid.length) throw new BinanceWeb3Error("invalid_response", r.status, "amount mismatch");
+  const best = valid.reduce((a, b) => (BigInt(b.toTokenAmount) > BigInt(a.toTokenAmount) ? b : a));
+  return {
+    vendor: best.vendorName || "Binance aggregator",
+    dex: best.dexRouterList?.[0]?.dexProtocol?.dexName,
+    amountOut: best.toTokenAmount,
+  };
+}
+
+/** Our route's output against Binance's, in basis points (positive: we give the user more). */
+export function benchmarkDeltaBps(ours: bigint, binance: bigint) {
+  if (binance <= 0n) return 0n;
+  return ((ours - binance) * 10_000n) / binance;
+}
+
+export function describeBenchmark(ours: bigint, b: BinanceBenchmark) {
+  const delta = benchmarkDeltaBps(ours, BigInt(b.amountOut));
+  if (delta >= -10n) return "✓ Matches or beats Binance’s best quote";
+  return `Binance’s best quote gives ${(Number(-delta) / 100).toFixed(2)}% more (${b.vendor})`;
+}

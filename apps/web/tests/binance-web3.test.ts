@@ -185,3 +185,55 @@ test("a compliance block pauses keyed calls instead of retrying per stock", asyn
     process.env = saved;
   }
 });
+
+test("Binance's aggregated quote is a display-only benchmark for our route", async (t) => {
+  const saved = { ...process.env };
+  process.env.BINANCE_WEB3_API_KEY = "key";
+  process.env.BINANCE_WEB3_API_SECRET = "secret";
+  const { aggregatedQuote, describeBenchmark, resetWeb3Pause } = await import(
+    "../src/server/stocks/binance-web3"
+  );
+  const usdt = "0x55d398326f99059fF775485246999027B3197955";
+  const aaplb = "0x431a3bee82e2ca41e49895cbece5bb0f76a89b7a";
+  const oneUsdt = 10n ** 18n;
+  // Live probe, 1 October 2026: two vendors; the larger output wins.
+  t.mock.method(globalThis, "fetch", async (url: string) => {
+    const q = new URL(String(url)).searchParams;
+    assert.equal(q.get("fromTokenAddress"), usdt);
+    assert.equal(q.get("toTokenAddress"), aaplb);
+    return Response.json({
+      code: 0,
+      data: [
+        {
+          vendorName: "Other",
+          fromTokenAmount: "1000000000000000000",
+          toTokenAmount: "2900000000000000",
+        },
+        {
+          vendorName: "LiquidMesh",
+          fromTokenAmount: "1000000000000000000",
+          toTokenAmount: "2984382419713991",
+          dexRouterList: [{ dexProtocol: { dexName: "Uniswap V4", percent: "100.00" } }],
+        },
+      ],
+    });
+  });
+  try {
+    resetWeb3Pause();
+    const b = await aggregatedQuote(usdt, aaplb, oneUsdt);
+    assert.deepEqual(b, { vendor: "LiquidMesh", dex: "Uniswap V4", amountOut: "2984382419713991" });
+    // KyberSwap's route for the same buy on 29 September: 0.00296473 AAPLB.
+    assert.equal(
+      describeBenchmark(2964730000000000n, b),
+      "Binance’s best quote gives 0.65% more (LiquidMesh)",
+    );
+    assert.equal(
+      describeBenchmark(2984382419713991n, b),
+      "✓ Matches or beats Binance’s best quote",
+    );
+    await assert.rejects(aggregatedQuote(usdt, aaplb, oneUsdt + 1n), /invalid_response/);
+  } finally {
+    resetWeb3Pause();
+    process.env = saved;
+  }
+});

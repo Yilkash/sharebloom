@@ -71,6 +71,22 @@ async function main() {
     console.log("\n--- What are the prices?\n" + (await mainnetReferencePriceReply()).text.body);
     await new Promise((resolve) => setTimeout(resolve, 1200));
     console.log("\n--- Tell me about Apple\n" + (await stockProfileReply("AAPL")).text.body);
+    // Best-execution check: our KyberSwap route against Binance's aggregated quote.
+    const { previewRoute } = await import("../src/server/stocks/mainnet");
+    const { aggregatedQuote, describeBenchmark } = await import(
+      "../src/server/stocks/binance-web3"
+    );
+    const oneUsdt = 10n ** BigInt(MAINNET_QUOTE.decimals);
+    for (const v of apple.filter((x) => x.issuer !== "xStocks")) {
+      await new Promise((resolve) => setTimeout(resolve, 1200));
+      const [kyber, binance] = await Promise.all([
+        previewRoute(MAINNET_QUOTE.address, v.address, oneUsdt),
+        aggregatedQuote(MAINNET_QUOTE.address, v.address, oneUsdt),
+      ]);
+      console.log(
+        `\n--- Buy ${v.symbol} with 1 USDT\nKyberSwap: ${Number(kyber.amountOut) / 1e18}\nBinance:   ${Number(BigInt(binance.amountOut)) / 1e18} via ${binance.vendor} (${binance.dex ?? "?"})\nReview line: ${describeBenchmark(kyber.amountOut, binance)}`,
+      );
+    }
     return;
   }
   if (process.argv.includes("--list")) {

@@ -32,6 +32,12 @@ import {
 } from "../networks/chain";
 import { bestMainnetVariant, verifiedMainnetRegistry } from "./mainnet";
 import { rwaTokenQuote } from "./binance-rwa";
+import {
+  aggregatedQuote,
+  binanceWeb3Configured,
+  web3ErrorLog,
+  type BinanceBenchmark,
+} from "./binance-web3";
 import { describeEvaluation, MAX_DEVIATION_BPS, priceDeviationBps } from "./stock-routing";
 
 export const mainnetRpc = createPublicClient({
@@ -133,6 +139,8 @@ export type MainnetPlan = {
   // The stock token actually traded (one of the ticker's issuer variants) and why it won.
   variant?: { symbol: string; issuer: StockIssuer };
   routing?: string[];
+  // Binance Web3 aggregated quote for the same swap, for display only; never signed.
+  benchmark?: BinanceBenchmark;
   id: string;
   orderId: Hex;
   wallet: Address;
@@ -212,6 +220,12 @@ export async function prepareMainnetPlan(
     "no_fair_price",
   );
   requireTrade(minimum > 0n && (side !== "sell" || expected <= c.inputCap));
+  const benchmarkWork = binanceWeb3Configured()
+    ? aggregatedQuote(input.address, output.address, amountIn).catch((error: unknown) => {
+        console.warn("Binance benchmark quote unavailable", web3ErrorLog(error));
+        return undefined;
+      })
+    : Promise.resolve(undefined);
   const [balance, eth, allowance, suggestedPrice, decimals, block] = await Promise.all([
     mainnetRpc.readContract({
       address: input.address,
@@ -295,6 +309,7 @@ export async function prepareMainnetPlan(
     provider: quote.provider,
     variant: { symbol: stock.symbol, issuer: stock.issuer },
     routing: best.evaluations.map((e) => describeEvaluation(e, side)),
+    benchmark: await benchmarkWork,
     symbol,
     side,
     inputToken: input.address,
