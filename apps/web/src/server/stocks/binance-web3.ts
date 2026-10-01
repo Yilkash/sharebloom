@@ -144,3 +144,53 @@ export function rwaReferencePrices(addresses: readonly string[]) {
   }
   return work;
 }
+
+// ---- Market: 24-hour price change ---------------------------------------------------------
+
+const changeRows = z.object({
+  code: z.literal(0),
+  data: z.array(
+    z.object({
+      tokenContractAddress: z.string(),
+      priceChange24H: z
+        .string()
+        .regex(/^-?\d{1,6}(?:\.\d{1,20})?$/)
+        .nullable(),
+    }),
+  ),
+});
+const CHANGE_MS = 60_000;
+let changes: { at: number; key: string; value: Map<string, number> } | undefined;
+
+/**
+ * 24-hour price change in percent for up to 100 tokens in one call. The body must be an
+ * array of {binanceChainId, tokenContractAddress}; the official connectors send none, and an
+ * object body returns a 50000 server error (see docs/DX_NOTES.md). Display only.
+ */
+export async function marketChanges24h(addresses: readonly string[]) {
+  const list = [...new Set(addresses.map((a) => a.toLowerCase()))].sort();
+  const key = list.join(",");
+  if (changes && changes.key === key && Date.now() - changes.at < CHANGE_MS) return changes.value;
+  const r = await web3Request(
+    "POST",
+    "/api/v1/dex/market/price-info",
+    {},
+    list.map((tokenContractAddress) => ({ binanceChainId: "56", tokenContractAddress })),
+  );
+  const parsed = changeRows.safeParse(r.body);
+  if (r.status !== 200 || !parsed.success)
+    throw new BinanceWeb3Error(r.status === 200 ? "invalid_response" : "rejected", r.status);
+  const value = new Map<string, number>();
+  for (const row of parsed.data.data)
+    if (row.priceChange24H !== null)
+      value.set(row.tokenContractAddress.toLowerCase(), Number(row.priceChange24H));
+  changes = { at: Date.now(), key, value };
+  return value;
+}
+
+/** "▲ 1.52% (24h)" for display, or an empty string when unknown. */
+export function formatChange24h(percent: number | undefined) {
+  if (percent === undefined || !Number.isFinite(percent)) return "";
+  const arrow = percent > 0 ? "▲" : percent < 0 ? "▼" : "•";
+  return `${arrow} ${Math.abs(percent).toFixed(2)}% (24h)`;
+}

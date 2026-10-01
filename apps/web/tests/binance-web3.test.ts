@@ -78,3 +78,31 @@ test("reference prices come from one keyed call per stock, xStocks use the bStoc
     process.env = saved;
   }
 });
+
+test("24h change sends the array body Binance expects and formats for chat", async (t) => {
+  const saved = { ...process.env };
+  process.env.BINANCE_WEB3_API_KEY = "key";
+  process.env.BINANCE_WEB3_API_SECRET = "secret";
+  const { marketChanges24h, formatChange24h } = await import("../src/server/stocks/binance-web3");
+  const address = "0x431a3bee82e2ca41e49895cbece5bb0f76a89b7a";
+  let sent: unknown;
+  t.mock.method(globalThis, "fetch", async (url: string, init: RequestInit) => {
+    assert.match(String(url), /\/build\/api\/v1\/dex\/market\/price-info$/);
+    assert.equal(init.method, "POST");
+    sent = JSON.parse(String(init.body));
+    return Response.json({
+      code: 0,
+      msg: "success",
+      data: [{ tokenContractAddress: address, priceChange24H: "1.519" }],
+    });
+  });
+  try {
+    const changes = await marketChanges24h([address.toUpperCase().replace("0X", "0x")]);
+    assert.deepEqual(sent, [{ binanceChainId: "56", tokenContractAddress: address }]);
+    assert.equal(formatChange24h(changes.get(address)), "▲ 1.52% (24h)");
+    assert.equal(formatChange24h(-0.4), "▼ 0.40% (24h)");
+    assert.equal(formatChange24h(undefined), "");
+  } finally {
+    process.env = saved;
+  }
+});

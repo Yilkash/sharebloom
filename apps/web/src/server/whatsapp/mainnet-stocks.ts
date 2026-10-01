@@ -18,6 +18,7 @@ import {
   verifiedMainnetRegistry,
 } from "../stocks/mainnet";
 import { text } from "./menu";
+import { binanceWeb3Configured, formatChange24h, marketChanges24h } from "../stocks/binance-web3";
 import {
   mainnetReferencePrice,
   ReferencePriceError,
@@ -41,31 +42,49 @@ function priceAge(asOf: number) {
 
 export async function mainnetReferencePriceReply(symbol?: MainnetStock, forceRefresh = false) {
   const symbols = symbol ? [symbol] : (Object.keys(MAINNET_ASSETS) as MainnetStock[]);
-  const lines = await Promise.all(
-    symbols.map(async (ticker) => {
-      try {
-        const price = await mainnetReferencePrice(ticker, forceRefresh);
-        const status = price.cachedFallback
-          ? "; saved price — refresh temporarily unavailable"
-          : price.marketOpen
-            ? ""
-            : "; trading paused for this token";
-        return `${MAINNET_ASSETS[ticker].name} (${ticker}): *≈ ${referenceDollars(price.value, price.decimals)} / token*\nUpdated ${priceAge(price.asOf)}${status}`;
-      } catch (error) {
-        const code = error instanceof ReferencePriceError ? error.code : "source_unavailable";
-        console.warn("Stock reference price unavailable", { symbol: ticker, code });
-        const reason =
-          code === "provider_busy"
-            ? "price provider temporarily busy"
-            : code === "trading_halted"
-              ? "pricing paused for this asset"
-              : code === "asset_changed" || code === "invalid_data"
-                ? "could not verify the price data"
-                : "price sources temporarily unreachable";
-        return `${ticker}: price unavailable (${reason})`;
-      }
-    }),
+  const prices = await Promise.allSettled(
+    symbols.map((ticker) => mainnetReferencePrice(ticker, forceRefresh)),
   );
+  // One Market API call for the 24h change of every listed price; display only.
+  const shown = prices.flatMap((p, i) => {
+    if (p.status !== "fulfilled") return [];
+    const v = MAINNET_ASSETS[symbols[i]].variants.find((x) => x.symbol === p.value.variant);
+    return v ? [v.address] : [];
+  });
+  const change = binanceWeb3Configured()
+    ? await marketChanges24h(shown).catch((error: unknown) => {
+        console.warn("24h change unavailable", {
+          code: error instanceof Error ? error.message : "unknown",
+        });
+        return new Map<string, number>();
+      })
+    : new Map<string, number>();
+  const lines = prices.map((result, i) => {
+    const ticker = symbols[i];
+    if (result.status === "fulfilled") {
+      const price = result.value;
+      const status = price.cachedFallback
+        ? "; saved price — refresh temporarily unavailable"
+        : price.marketOpen
+          ? ""
+          : "; trading paused for this token";
+      const v = MAINNET_ASSETS[ticker].variants.find((x) => x.symbol === price.variant);
+      const move = formatChange24h(v && change.get(v.address));
+      return `${MAINNET_ASSETS[ticker].name} (${ticker}): *≈ ${referenceDollars(price.value, price.decimals)} / token*${move ? ` ${move}` : ""}\nUpdated ${priceAge(price.asOf)}${status}`;
+    }
+    const error = result.reason;
+    const code = error instanceof ReferencePriceError ? error.code : "source_unavailable";
+    console.warn("Stock reference price unavailable", { symbol: ticker, code });
+    const reason =
+      code === "provider_busy"
+        ? "price provider temporarily busy"
+        : code === "trading_halted"
+          ? "pricing paused for this asset"
+          : code === "asset_changed" || code === "invalid_data"
+            ? "could not verify the price data"
+            : "price sources temporarily unreachable";
+    return `${ticker}: price unavailable (${reason})`;
+  });
   return text(
     "📈 *Stock token prices · USD*\n\n" +
       lines.join("\n\n") +
