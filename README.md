@@ -119,10 +119,12 @@ Buy the S&P 500 with 20 USDT
 Sell 0.01 NVIDIA
 ```
 
-### 📊 Prices and holdings
+### 📊 Prices, companies and holdings
 
 ```text
 What are the prices?
+Tell me about Apple
+How did Tesla do this week?
 Show my stocks
 What stocks can I buy?
 ```
@@ -150,7 +152,7 @@ flowchart LR
     B --> C[Build route and<br/>re-check before review]
 ```
 
-- **Reference price.** Binance's public RWA data for each contract address, including its trading status (`openState`). Prices become 18-decimal integers; floating point is never used for money.
+- **Reference price.** Binance Web3 API **RWA Data** (`/rwa/price`): one batched call returns Binance's reference price for all three issuers. xStocks are not covered there, so they are held to the bStocks reference for the same 1:1 share. Trading status (`openState`) comes from Binance's public RWA data, which is also the fallback for prices. Prices become 18-decimal integers; floating point is never used for money.
 - **Deviation.** The quote's effective price against the reference, always measured _against the user_: for a buy, paying more is worse, and for a sell, receiving less is worse. It rounds up, so 2.001% counts as more than 2%.
 - **Sells** compare only the issuers you hold enough of.
 - **Double check.** The chosen route is rebuilt with calldata and checked again, with a fresh trading status, before you see the review.
@@ -190,16 +192,16 @@ flowchart LR
     RUN --> OUT[(Outbox)] --> WA
 ```
 
-| Part        | Technology                                                                |
-| ----------- | ------------------------------------------------------------------------- |
-| App and API | Next.js 16 · TypeScript · viem · zod                                      |
-| AI          | SERV Reasoning with tool calling and `serv_prompt_guard`                  |
-| Market data | Binance Web3 RWA token list and per-token price                           |
-| Trading     | KyberSwap aggregator on BNB Chain                                         |
-| Wallets     | Privy server wallets with a generated allow-list policy                   |
-| Messaging   | WhatsApp Cloud API: signed webhooks, list menus and reply buttons         |
-| Storage     | SQLite (`node:sqlite`) on a persistent volume, sensitive fields encrypted |
-| Hosting     | Docker on Railway, with the web app and workers in one service            |
+| Part        | Technology                                                                                                                                  |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| App and API | Next.js 16 · TypeScript · viem · zod                                                                                                        |
+| AI          | SERV Reasoning with tool calling and `serv_prompt_guard`                                                                                    |
+| Market data | Binance Web3 API: RWA Data (reference prices, company facts) and Market (24h change, daily candles); public RWA token list for the registry |
+| Trading     | KyberSwap aggregator on BNB Chain                                                                                                           |
+| Wallets     | Privy server wallets with a generated allow-list policy                                                                                     |
+| Messaging   | WhatsApp Cloud API: signed webhooks, list menus and reply buttons                                                                           |
+| Storage     | SQLite (`node:sqlite`) on a persistent volume, sensitive fields encrypted                                                                   |
+| Hosting     | Docker on Railway, with the web app and workers in one service                                                                              |
 
 ```text
 sharebloom/
