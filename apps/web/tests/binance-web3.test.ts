@@ -160,3 +160,28 @@ test("company facts combine underlying data and daily candles into a chat reply"
     process.env = saved;
   }
 });
+
+test("a compliance block pauses keyed calls instead of retrying per stock", async (t) => {
+  const saved = { ...process.env };
+  process.env.BINANCE_WEB3_API_KEY = "key";
+  process.env.BINANCE_WEB3_API_SECRET = "secret";
+  const { web3Request, resetWeb3Pause } = await import("../src/server/stocks/binance-web3");
+  let calls = 0;
+  t.mock.method(globalThis, "fetch", async () => {
+    calls++;
+    return Response.json({
+      code: 40304,
+      msg: "Service not available due to compliance restriction",
+    });
+  });
+  try {
+    resetWeb3Pause();
+    const first = await web3Request("GET", "/api/v1/dex/market/rwa/price");
+    assert.equal((first.body as { code: number }).code, 40304);
+    await assert.rejects(web3Request("GET", "/api/v1/dex/market/rwa/price"), /unavailable/);
+    assert.equal(calls, 1, "no second network call while paused");
+  } finally {
+    resetWeb3Pause();
+    process.env = saved;
+  }
+});

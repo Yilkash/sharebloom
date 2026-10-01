@@ -61,3 +61,8 @@ error, please retry later` (a server error for a client mistake);
   AAPLB; `platformId=xstock` returned `40001 Platform not found: xstock`; `tabId` 1, 2 and 3
   all returned the same 488 rows. The keyed list therefore cannot verify our 27 tokens, so
   the registry check stays on the public list while prices use the keyed `/rwa/price`.
+- **Region restriction in production.** From Railway's US region every keyed call returned
+  HTTP 200 with `40304 Service not available due to compliance restriction`, while the
+  same key worked from Nigeria. Nothing in the error says which regions are allowed; the
+  hackathon Telegram group said to use Asia (Singapore). Retrying per stock after the
+  batch failed then produced `429 / 42900 Rate limit exceeded`.

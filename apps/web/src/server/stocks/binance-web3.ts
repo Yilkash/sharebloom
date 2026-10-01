@@ -41,6 +41,15 @@ export function web3Signature(
   return createHmac("sha256", secret).update(preHash).digest("base64");
 }
 
+// After a compliance block (40304, e.g. from a US server) or a rate-limit answer, stop calling
+// for a while instead of retrying per stock; callers fall back to public data meanwhile.
+const COMPLIANCE_PAUSE_MS = 10 * 60_000;
+const RATE_LIMIT_PAUSE_MS = 5_000;
+let pausedUntil = 0;
+export const resetWeb3Pause = () => {
+  pausedUntil = 0;
+};
+
 export type Web3Response = {
   status: number;
   ms: number;
@@ -59,6 +68,7 @@ export async function web3Request(
   const key = process.env.BINANCE_WEB3_API_KEY?.trim();
   const secret = process.env.BINANCE_WEB3_API_SECRET?.trim();
   if (!key || !secret) throw new BinanceWeb3Error("not_configured");
+  if (Date.now() < pausedUntil) throw new BinanceWeb3Error("unavailable", undefined, "paused");
   const search = new URLSearchParams(query).toString();
   const bodyText = body === undefined ? "" : JSON.stringify(body);
   const timestamp = new Date().toISOString();
@@ -94,6 +104,10 @@ export async function web3Request(
   } catch {
     /* Keep the text; callers validate the shape. */
   }
+  const apiCode = (parsed as { code?: unknown } | null)?.code;
+  if (apiCode === 40304) pausedUntil = Date.now() + COMPLIANCE_PAUSE_MS;
+  else if (response.status === 429 || apiCode === 42900)
+    pausedUntil = Math.max(pausedUntil, Date.now() + RATE_LIMIT_PAUSE_MS);
   return { status: response.status, ms: Date.now() - started, body: parsed, rateLimits };
 }
 
