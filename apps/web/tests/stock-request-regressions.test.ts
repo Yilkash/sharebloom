@@ -2,7 +2,10 @@ import assert from "node:assert/strict";
 import { afterEach, mock, test } from "node:test";
 import { DatabaseSync } from "node:sqlite";
 import { mainnetStockMentions } from "../src/server/stocks/stock-language";
-import { fetchMainnetRoute } from "../src/server/stocks/kyber-route";
+import { fetchMainnetRoute, KYBER_RETRY_DELAYS_MS } from "../src/server/stocks/kyber-route";
+
+// Keep retry tests fast; the attempt count is what matters here.
+KYBER_RETRY_DELAYS_MS.splice(0, KYBER_RETRY_DELAYS_MS.length, 0, 0);
 import { migrateAccounts } from "../src/server/whatsapp/accounts";
 import { currentTask, runAssistantTool } from "../src/server/whatsapp/assistant-tools";
 
@@ -139,7 +142,7 @@ for (const status of [429, 502, 503, 504]) {
     assert.equal(calls, 2);
   });
 }
-test("continued overload stops after two GETs and reports busy", async () => {
+test("continued overload stops after three GETs and reports busy", async () => {
   let calls = 0;
   mock.method(console, "warn", () => undefined);
   mock.method(globalThis, "fetch", async () => {
@@ -147,7 +150,17 @@ test("continued overload stops after two GETs and reports busy", async () => {
     return new Response(null, { status: 503 });
   });
   await assert.rejects(fetchMainnetRoute(query), /route_busy/);
-  assert.equal(calls, 2);
+  assert.equal(calls, 3);
+});
+test("a 429 burst recovers on the third attempt", async () => {
+  let calls = 0;
+  mock.method(console, "warn", () => undefined);
+  mock.method(globalThis, "fetch", async () => {
+    calls++;
+    return calls < 3 ? new Response(null, { status: 429 }) : Response.json({ code: 0 });
+  });
+  assert.equal((await fetchMainnetRoute(query)).status, 200);
+  assert.equal(calls, 3);
 });
 test("nontransient HTTP failures are not retried", async () => {
   let calls = 0;
@@ -167,5 +180,5 @@ test("network failure retries only the quote lookup", async () => {
     throw Error("network timeout");
   });
   await assert.rejects(fetchMainnetRoute(query), /route_unavailable/);
-  assert.equal(calls, 2);
+  assert.equal(calls, 3);
 });
