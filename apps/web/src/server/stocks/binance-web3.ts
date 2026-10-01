@@ -108,41 +108,59 @@ export type KeyedReference = {
 };
 
 const PRICE_MS = 15_000;
-const prices = new Map<string, { at: number; value: Map<string, KeyedReference> }>();
-const pricePending = new Map<string, Promise<Map<string, KeyedReference>>>();
+// Cached per token, so one batched call (e.g. all 27 tokens for the price list) serves the
+// later per-stock lookups without spending more of the rate limit (5).
+const references = new Map<string, { at: number; value?: KeyedReference }>();
+const pricePending = new Map<string, Promise<void>>();
 
-/** Binance reference prices for up to a few tokens in one call, cached for 15 seconds. */
-export function rwaReferencePrices(addresses: readonly string[]) {
-  const key = [...addresses]
-    .map((a) => a.toLowerCase())
-    .sort()
-    .join(",");
-  const saved = prices.get(key);
-  if (saved && Date.now() - saved.at < PRICE_MS) return Promise.resolve(saved.value);
-  let work = pricePending.get(key);
-  if (!work) {
-    work = (async () => {
-      const r = await web3Request("GET", "/api/v1/dex/market/rwa/price", {
-        binanceChainId: "56",
-        tokenContractAddresses: key,
-      });
-      const parsed = priceRows.safeParse(r.body);
-      if (r.status !== 200 || !parsed.success)
-        throw new BinanceWeb3Error(r.status === 200 ? "invalid_response" : "rejected", r.status);
-      const value = new Map<string, KeyedReference>();
-      for (const row of parsed.data.data)
-        if (row.referencePrice && Number(row.referencePrice) > 0)
-          value.set(row.tokenContractAddress.toLowerCase(), {
-            reference: row.referencePrice,
-            platform: row.platformId,
-            updatedAt: row.tokenPriceUpdatedAt ?? null,
+/** Binance reference prices for a batch of tokens in one call, cached for 15 seconds. */
+export async function rwaReferencePrices(addresses: readonly string[]) {
+  const list = [...new Set(addresses.map((a) => a.toLowerCase()))].sort();
+  const fresh = (a: string) => {
+    const c = references.get(a);
+    return c !== undefined && Date.now() - c.at < PRICE_MS;
+  };
+  if (!list.every(fresh)) {
+    const key = list.join(",");
+    let work = pricePending.get(key);
+    if (!work) {
+      work = (async () => {
+        const r = await web3Request("GET", "/api/v1/dex/market/rwa/price", {
+          binanceChainId: "56",
+          tokenContractAddresses: key,
+        });
+        const parsed = priceRows.safeParse(r.body);
+        if (r.status !== 200 || !parsed.success)
+          throw new BinanceWeb3Error(r.status === 200 ? "invalid_response" : "rejected", r.status);
+        const at = Date.now();
+        const rows = new Map(
+          parsed.data.data.map((row) => [row.tokenContractAddress.toLowerCase(), row]),
+        );
+        for (const address of list) {
+          const row = rows.get(address);
+          references.set(address, {
+            at,
+            value:
+              row?.referencePrice && Number(row.referencePrice) > 0
+                ? {
+                    reference: row.referencePrice,
+                    platform: row.platformId,
+                    updatedAt: row.tokenPriceUpdatedAt ?? null,
+                  }
+                : undefined,
           });
-      prices.set(key, { at: Date.now(), value });
-      return value;
-    })().finally(() => pricePending.delete(key));
-    pricePending.set(key, work);
+        }
+      })().finally(() => pricePending.delete(key));
+      pricePending.set(key, work);
+    }
+    await work;
   }
-  return work;
+  return new Map(
+    list.flatMap((a) => {
+      const value = references.get(a)?.value;
+      return value ? [[a, value] as const] : [];
+    }),
+  );
 }
 
 // ---- Market: 24-hour price change ---------------------------------------------------------

@@ -23,6 +23,7 @@ import {
   companyFacts,
   formatChange24h,
   marketChanges24h,
+  rwaReferencePrices,
   sparkline,
 } from "../stocks/binance-web3";
 import {
@@ -48,6 +49,11 @@ function priceAge(asOf: number) {
 
 export async function mainnetReferencePriceReply(symbol?: MainnetStock, forceRefresh = false) {
   const symbols = symbol ? [symbol] : (Object.keys(MAINNET_ASSETS) as MainnetStock[]);
+  // Warm the per-token cache with one batched call instead of one call per stock.
+  if (binanceWeb3Configured())
+    await rwaReferencePrices(
+      symbols.flatMap((t) => MAINNET_ASSETS[t].variants.map((v) => v.address)),
+    ).catch(() => undefined);
   const prices = await Promise.allSettled(
     symbols.map((ticker) => mainnetReferencePrice(ticker, forceRefresh)),
   );
