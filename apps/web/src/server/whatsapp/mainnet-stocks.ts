@@ -25,6 +25,7 @@ import {
   marketChanges24h,
   rwaReferencePrices,
   sparkline,
+  web3ErrorLog,
 } from "../stocks/binance-web3";
 import {
   mainnetReferencePrice,
@@ -65,9 +66,7 @@ export async function mainnetReferencePriceReply(symbol?: MainnetStock, forceRef
   });
   const change = binanceWeb3Configured()
     ? await marketChanges24h(shown).catch((error: unknown) => {
-        console.warn("24h change unavailable", {
-          code: error instanceof Error ? error.message : "unknown",
-        });
+        console.warn("24h change unavailable", web3ErrorLog(error));
         return new Map<string, number>();
       })
     : new Map<string, number>();
@@ -145,10 +144,7 @@ export async function stockProfileReply(symbol: MainnetStock) {
       );
       return text(lines.join("\n"));
     } catch (error) {
-      console.warn("Company facts unavailable", {
-        symbol: variant.symbol,
-        code: error instanceof Error ? error.message : "unknown",
-      });
+      console.warn("Company facts unavailable", { symbol: variant.symbol, ...web3ErrorLog(error) });
     }
   }
   return text(

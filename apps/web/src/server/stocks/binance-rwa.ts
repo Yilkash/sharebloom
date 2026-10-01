@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { MAINNET_ASSETS, type MainnetStock } from "../networks/chain";
-import { binanceWeb3Configured, rwaReferencePrices } from "./binance-web3";
+import { binanceWeb3Configured, rwaReferencePrices, web3ErrorLog } from "./binance-web3";
 
 // Binance Web3 RWA data (public, no API key). Documented in binance/binance-skills-hub
 // skills/binance-web3/binance-tokenized-securities-info. Used for the verified token list,
@@ -128,9 +128,7 @@ export function rwaTokenQuote(address: string): Promise<RwaQuote> {
       if (!parsed.success) throw new BinanceRwaError("invalid_data");
       const d = parsed.data.data;
       const keyed = await keyedPrice(d.ticker, key).catch((error: unknown) => {
-        console.warn("Binance Web3 reference unavailable; using public price", {
-          code: error instanceof Error ? error.message : "unknown",
-        });
+        console.warn("Binance Web3 reference unavailable; using public price", web3ErrorLog(error));
         return undefined;
       });
       const price = keyed ?? toFixed18(d.tokenInfo.price);

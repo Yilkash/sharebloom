@@ -15,6 +15,17 @@ export class BinanceWeb3Error extends Error {
   }
 }
 
+/** An error carrying the HTTP status and Binance's own code and message (no credentials). */
+export function web3Failure(r: Web3Response) {
+  const b = (r.body ?? {}) as { code?: unknown; msg?: unknown };
+  const detail =
+    `${String(b.code ?? "")} ${typeof b.msg === "string" ? b.msg : typeof r.body === "string" ? r.body : ""}`
+      .replace(/[^\x20-\x7e]/g, "")
+      .trim()
+      .slice(0, 160);
+  return new BinanceWeb3Error(r.status === 200 ? "invalid_response" : "rejected", r.status, detail);
+}
+
 export const binanceWeb3Configured = () =>
   Boolean(process.env.BINANCE_WEB3_API_KEY?.trim() && process.env.BINANCE_WEB3_API_SECRET?.trim());
 
@@ -130,8 +141,7 @@ export async function rwaReferencePrices(addresses: readonly string[]) {
           tokenContractAddresses: key,
         });
         const parsed = priceRows.safeParse(r.body);
-        if (r.status !== 200 || !parsed.success)
-          throw new BinanceWeb3Error(r.status === 200 ? "invalid_response" : "rejected", r.status);
+        if (r.status !== 200 || !parsed.success) throw web3Failure(r);
         const at = Date.now();
         const rows = new Map(
           parsed.data.data.map((row) => [row.tokenContractAddress.toLowerCase(), row]),
@@ -196,8 +206,7 @@ export async function marketChanges24h(addresses: readonly string[]) {
     list.map((tokenContractAddress) => ({ binanceChainId: "56", tokenContractAddress })),
   );
   const parsed = changeRows.safeParse(r.body);
-  if (r.status !== 200 || !parsed.success)
-    throw new BinanceWeb3Error(r.status === 200 ? "invalid_response" : "rejected", r.status);
+  if (r.status !== 200 || !parsed.success) throw web3Failure(r);
   const value = new Map<string, number>();
   for (const row of parsed.data.data)
     if (row.priceChange24H !== null)
@@ -261,7 +270,7 @@ export async function companyFacts(address: string): Promise<CompanyFacts> {
   ]);
   const m = underlyingSchema.safeParse(market.body);
   const c = candleSchema.safeParse(candles.body);
-  if (!m.success && !c.success) throw new BinanceWeb3Error("invalid_response");
+  if (!m.success && !c.success) throw web3Failure(m.success ? candles : market);
   // Candle: [open, high, low, close, volume, timestamp, count]; sort by time to be safe.
   const rows = c.success ? [...c.data.data].sort((a, b) => a[5] - b[5]) : [];
   const d = m.success ? m.data.data.marketData : undefined;
@@ -285,4 +294,11 @@ export function sparkline(values: readonly number[]) {
   const lo = Math.min(...values);
   const span = Math.max(...values) - lo || 1;
   return values.map((v) => bars[Math.round(((v - lo) / span) * (bars.length - 1))]).join("");
+}
+
+/** Safe fields for logs: our code, the HTTP status and Binance's code and message. */
+export function web3ErrorLog(error: unknown) {
+  return error instanceof BinanceWeb3Error
+    ? { code: error.code, status: error.status ?? null, detail: error.detail ?? null }
+    : { code: error instanceof Error ? error.message : "unknown" };
 }
