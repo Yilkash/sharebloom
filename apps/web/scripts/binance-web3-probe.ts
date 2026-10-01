@@ -55,6 +55,35 @@ async function main() {
     return;
   }
   const apple = MAINNET_ASSETS.AAPL.variants;
+  if (process.argv.includes("--list")) {
+    // Why are some tokens missing from the default list? Try each filter once.
+    for (const extra of [
+      { platformId: "bstock" },
+      { platformId: "xstock" },
+      { tabId: "1" },
+      { tabId: "2" },
+      { tabId: "3" },
+    ] as Record<string, string>[]) {
+      await new Promise((resolve) => setTimeout(resolve, 400)); // stay under the rate limit
+      const r = await web3Request("GET", "/api/v1/dex/market/rwa/tokens", {
+        binanceChainId: "56",
+        ...extra,
+      }).catch(() => undefined);
+      const data =
+        (r?.body as { data?: Record<string, unknown>[]; code?: number; msg?: string }) ?? {};
+      const rows = data.data ?? [];
+      const found = apple
+        .filter((v) =>
+          rows.some((x) => String(x.tokenContractAddress ?? "").toLowerCase() === v.address),
+        )
+        .map((v) => v.symbol);
+      const platforms = [...new Set(rows.map((x) => String(x.platformId)))].join(",");
+      console.log(
+        `${JSON.stringify(extra)} → HTTP ${r?.status} code ${data.code} ${data.msg ?? ""} · ${rows.length} rows · platforms: ${platforms} · Apple found: ${found.join(",") || "none"}`,
+      );
+    }
+    return;
+  }
   const [aaplB] = apple;
   const addresses = apple.map((v) => v.address).join(",");
   const chain = { binanceChainId: "56" };

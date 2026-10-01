@@ -33,3 +33,27 @@ Raw notes kept while porting Steward (Robinhood Chain) to Sharebloom (BNB Chain)
 
 - viem has BNB Chain built in, and chain 56 swaps were a matter of changing constants and pins; most work was in routing and decimals.
 - Privy policies worked unchanged on chain 56. Generating the policy from the token list kept 30 rules consistent with the code.
+
+## Binance Web3 Wallet API (keyed), first probe on 1 October 2026
+
+Facts from `scripts/binance-web3-probe.ts`, run against `https://web3.binance.com/build`.
+
+- **Signing.** HMAC-SHA256 over `timestamp + METHOD + "/build" + path + "?query" + body`,
+  base64, in `X-OC-*` headers. Found by reading the official Python connector's
+  `binance-common` package, because the developer docs site did not load from Nigeria.
+- **`POST /market/price-info` body is undocumented in both official connectors.** The
+  Python and JavaScript clients send an empty body. Results:
+  - no body: `40001 Invalid request body: malformed JSON or field type mismatch`;
+  - object body `{binanceChainId, tokenContractAddresses: [...]}`: `50000 Internal server
+error, please retry later` (a server error for a client mistake);
+  - array body `[{"binanceChainId":"56","tokenContractAddress":"0x…"}]`: works.
+- **The RWA token list (`/market/rwa/tokens?binanceChainId=56`) returned 488 rows but only
+  AAPLon of the three Apple tokens.** AAPLB and AAPLx were missing, though `/rwa/price`
+  returned all three.
+- **xStocks data looks stale.** AAPLx came back with `platformId: null` and a
+  `tokenPriceUpdatedAt` about 2.5 days old, with `tokenPrice` equal to `referencePrice`.
+- **Rate limit:** `x-oc-ratelimit-limit: 5`, with remaining and used weight in headers.
+- **Latency:** the token list took 2.0 s (about 454 KB); other calls 0.43–1.3 s.
+- **What worked well:** batch `/rwa/price` for three tokens in one call; `/rwa/underlying-market`
+  gives 52-week range, P/E, market cap and dividend yield; daily candles; the aggregated
+  quote routed 1 USDT to 0.002984 AAPLB through Uniswap V4 via the vendor LiquidMesh.
