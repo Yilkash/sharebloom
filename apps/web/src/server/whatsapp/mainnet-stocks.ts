@@ -21,10 +21,10 @@ import { text } from "./menu";
 import {
   binanceWeb3Configured,
   companyFacts,
+  dailyMoves,
   formatChange24h,
   marketChanges24h,
   rwaReferencePrices,
-  sparkline,
   web3ErrorLog,
 } from "../stocks/binance-web3";
 import {
@@ -128,7 +128,7 @@ export async function stockProfileReply(symbol: MainnetStock) {
         const pct = ((last - f.weekOpen) / f.weekOpen) * 100;
         lines.push(
           `Past 7 days: ${usd(f.weekOpen)} → ${usd(last)} (${pct >= 0 ? "+" : "−"}${Math.abs(pct).toFixed(2)}%)`,
-          "```" + sparkline(f.closes) + "```",
+          `Day by day: ${dailyMoves(f.closes)}`,
         );
       }
       if (f.low52w !== undefined && f.high52w !== undefined)

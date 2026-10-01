@@ -112,7 +112,7 @@ test("company facts combine underlying data and daily candles into a chat reply"
   process.env.BINANCE_WEB3_API_KEY = "key";
   process.env.BINANCE_WEB3_API_SECRET = "secret";
   const { stockProfileReply } = await import("../src/server/whatsapp/mainnet-stocks");
-  const { sparkline } = await import("../src/server/stocks/binance-web3");
+  const { dailyMoves } = await import("../src/server/stocks/binance-web3");
   // Shapes and values from the live probe on 1 October 2026 (AAPLB).
   const closes = [342.0795, 339.5916, 341.1391, 338.5816, 328.9617, 334.7943, 333.8145];
   t.mock.method(globalThis, "fetch", async (url: string) => {
@@ -154,8 +154,8 @@ test("company facts combine underlying data and daily candles into a chat reply"
     assert.match(body, /Market cap: \$4\.86T/);
     assert.match(body, /P\/E \(TTM\): 37\.7/);
     assert.match(body, /Dividend yield: 0\.32%/);
-    assert.ok(body.includes(sparkline(closes)));
-    assert.equal(sparkline([1, 2, 3]), "▁▅█");
+    assert.match(body, /Day by day: ▼ ▲ ▼ ▼ ▲ ▼/);
+    assert.equal(dailyMoves([1, 2, 2, 1]), "▲ • ▼");
   } finally {
     process.env = saved;
   }
