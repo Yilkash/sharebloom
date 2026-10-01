@@ -1,4 +1,5 @@
 import { createHmac, randomUUID } from "node:crypto";
+import { z } from "zod";
 
 // Binance Web3 Wallet API (keyed). Requests are signed like the official connectors:
 // base64(HMAC-SHA256(secret, timestamp + METHOD + "/build" + path + ["?" + query] + body)).
@@ -83,4 +84,63 @@ export async function web3Request(
     /* Keep the text; callers validate the shape. */
   }
   return { status: response.status, ms: Date.now() - started, body: parsed, rateLimits };
+}
+
+// ---- RWA Data: per-token reference prices -------------------------------------------------
+
+const decimal = z.string().regex(/^(?:0|[1-9]\d{0,19})(?:\.\d{1,60})?$/);
+const priceRows = z.object({
+  code: z.literal(0),
+  data: z.array(
+    z.object({
+      binanceChainId: z.literal("56"),
+      tokenContractAddress: z.string(),
+      platformId: z.string().nullable(),
+      referencePrice: decimal.nullable(),
+      tokenPriceUpdatedAt: z.number().nullable().optional(),
+    }),
+  ),
+});
+export type KeyedReference = {
+  reference: string;
+  platform: string | null;
+  updatedAt: number | null;
+};
+
+const PRICE_MS = 15_000;
+const prices = new Map<string, { at: number; value: Map<string, KeyedReference> }>();
+const pricePending = new Map<string, Promise<Map<string, KeyedReference>>>();
+
+/** Binance reference prices for up to a few tokens in one call, cached for 15 seconds. */
+export function rwaReferencePrices(addresses: readonly string[]) {
+  const key = [...addresses]
+    .map((a) => a.toLowerCase())
+    .sort()
+    .join(",");
+  const saved = prices.get(key);
+  if (saved && Date.now() - saved.at < PRICE_MS) return Promise.resolve(saved.value);
+  let work = pricePending.get(key);
+  if (!work) {
+    work = (async () => {
+      const r = await web3Request("GET", "/api/v1/dex/market/rwa/price", {
+        binanceChainId: "56",
+        tokenContractAddresses: key,
+      });
+      const parsed = priceRows.safeParse(r.body);
+      if (r.status !== 200 || !parsed.success)
+        throw new BinanceWeb3Error(r.status === 200 ? "invalid_response" : "rejected", r.status);
+      const value = new Map<string, KeyedReference>();
+      for (const row of parsed.data.data)
+        if (row.referencePrice && Number(row.referencePrice) > 0)
+          value.set(row.tokenContractAddress.toLowerCase(), {
+            reference: row.referencePrice,
+            platform: row.platformId,
+            updatedAt: row.tokenPriceUpdatedAt ?? null,
+          });
+      prices.set(key, { at: Date.now(), value });
+      return value;
+    })().finally(() => pricePending.delete(key));
+    pricePending.set(key, work);
+  }
+  return work;
 }

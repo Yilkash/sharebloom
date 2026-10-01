@@ -57,3 +57,7 @@ error, please retry later` (a server error for a client mistake);
 - **What worked well:** batch `/rwa/price` for three tokens in one call; `/rwa/underlying-market`
   gives 52-week range, P/E, market cap and dividend yield; daily candles; the aggregated
   quote routed 1 USDT to 0.002984 AAPLB through Uniswap V4 via the vendor LiquidMesh.
+- **Token list filters (second probe).** `platformId=bstock` returned 46 rows without
+  AAPLB; `platformId=xstock` returned `40001 Platform not found: xstock`; `tabId` 1, 2 and 3
+  all returned the same 488 rows. The keyed list therefore cannot verify our 27 tokens, so
+  the registry check stays on the public list while prices use the keyed `/rwa/price`.

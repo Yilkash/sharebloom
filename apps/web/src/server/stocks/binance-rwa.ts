@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { MAINNET_ASSETS, type MainnetStock } from "../networks/chain";
+import { binanceWeb3Configured, rwaReferencePrices } from "./binance-web3";
 
 // Binance Web3 RWA data (public, no API key). Documented in binance/binance-skills-hub
 // skills/binance-web3/binance-tokenized-securities-info. Used for the verified token list,
@@ -100,6 +102,8 @@ export type RwaQuote = {
   reason: string | null;
   marketStatus: string | null;
   readAt: number;
+  /** Where the price came from: the keyed Binance Web3 API, or the public endpoint. */
+  source?: "web3_api" | "public";
 };
 const dynamic = new Map<string, RwaQuote>();
 const dynamicPending = new Map<string, Promise<RwaQuote>>();
@@ -123,7 +127,13 @@ export function rwaTokenQuote(address: string): Promise<RwaQuote> {
       const parsed = dynamicSchema.safeParse(body);
       if (!parsed.success) throw new BinanceRwaError("invalid_data");
       const d = parsed.data.data;
-      const price = toFixed18(d.tokenInfo.price);
+      const keyed = await keyedPrice(d.ticker, key).catch((error: unknown) => {
+        console.warn("Binance Web3 reference unavailable; using public price", {
+          code: error instanceof Error ? error.message : "unknown",
+        });
+        return undefined;
+      });
+      const price = keyed ?? toFixed18(d.tokenInfo.price);
       if (price <= 0n) throw new BinanceRwaError("invalid_data");
       const quote: RwaQuote = {
         symbol: d.symbol,
@@ -133,6 +143,7 @@ export function rwaTokenQuote(address: string): Promise<RwaQuote> {
         reason: d.statusInfo.reasonCode ?? null,
         marketStatus: d.statusInfo.marketStatus ?? null,
         readAt: Date.now(),
+        source: keyed ? "web3_api" : "public",
       };
       dynamic.set(key, quote);
       return quote;
@@ -142,4 +153,21 @@ export function rwaTokenQuote(address: string): Promise<RwaQuote> {
     dynamicPending.set(key, work);
   }
   return work;
+}
+
+/**
+ * Reference price from the keyed Binance Web3 API, batched per ticker (one call covers all
+ * three issuers). xStocks are not covered there (no platform, stale price), so they use the
+ * bStocks reference for the same 1:1 share token.
+ */
+export async function keyedPrice(ticker: string, address: string): Promise<bigint | undefined> {
+  if (!binanceWeb3Configured()) return undefined;
+  const asset = MAINNET_ASSETS[ticker as MainnetStock];
+  if (!asset) return undefined;
+  const refs = await rwaReferencePrices(asset.variants.map((v) => v.address));
+  const own = refs.get(address.toLowerCase());
+  if (own?.platform) return toFixed18(own.reference);
+  const bstock = asset.variants.find((v) => v.issuer === "bStocks");
+  const fallback = bstock && refs.get(bstock.address.toLowerCase());
+  return fallback?.platform ? toFixed18(fallback.reference) : undefined;
 }
