@@ -301,6 +301,15 @@ export async function companyFacts(address: string): Promise<CompanyFacts> {
   return value;
 }
 
+/** A one-line chart of closing prices, e.g. "▂▅▆▄▁▃▃". */
+export function sparkline(values: readonly number[]) {
+  if (values.length < 2) return "";
+  const bars = "▁▂▃▄▅▆▇█";
+  const lo = Math.min(...values);
+  const span = Math.max(...values) - lo || 1;
+  return values.map((v) => bars[Math.round(((v - lo) / span) * (bars.length - 1))]).join("");
+}
+
 /** Day-over-day direction of closing prices, e.g. "▼ ▲ ▼ ▼ ▲ ▼". Renders evenly in WhatsApp. */
 export function dailyMoves(closes: readonly number[]) {
   return closes
