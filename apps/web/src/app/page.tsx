@@ -130,7 +130,7 @@ export default function Landing() {
           <div className={styles.heroText}>
             <p className={styles.eyebrow}>Tokenized US stocks · BNB Chain</p>
             <h1>
-              Own a piece of Apple by <span className={styles.highlight}>texting</span>.
+              Own US stocks by <span className={styles.highlight}>texting</span>.
             </h1>
             <p className={styles.lead}>
               Buy Apple, Tesla, NVIDIA, the S&amp;P 500 and more with USDT, right inside WhatsApp.
