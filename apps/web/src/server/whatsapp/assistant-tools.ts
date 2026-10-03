@@ -423,7 +423,9 @@ export async function runAssistantTool(
       "iu",
     ).exec(input);
     const budget =
-      /\b(?:with|spend|budget|for)\s+(\d+(?:\.\d+)?)\b|\b(\d+(?:\.\d+)?)\s*USDT\b/i.exec(input);
+      /\b(?:with|spend|budget|for|use)\s+\$?(\d+(?:\.\d+)?)\b|\$(\d+(?:\.\d+)?)\b|\b(\d+(?:\.\d+)?)\s*(?:USDT|usd|dollars?)\b/i.exec(
+        input,
+      );
     if (quantity && !budget) {
       draft.desiredQuantity = quantity[1];
       draft.amount = undefined;
@@ -442,7 +444,7 @@ export async function runAssistantTool(
     }
     if (budget) {
       draft.desiredQuantity = undefined;
-      draft.amount = budget[1] ?? budget[2];
+      draft.amount = budget[1] ?? budget[2] ?? budget[3];
       draft.unit = "USDT";
     }
     if (name === "get_stock_price") {
@@ -461,10 +463,11 @@ export async function runAssistantTool(
       );
     }
     delete draft.priceScope;
+    // "usd", "dollars" and "$" all mean the app's dollar token (USDT).
+    if (draft.unit && /^(?:usd|usdt|dollars?|\$)$/i.test(draft.unit.trim())) draft.unit = "USDT";
     if (!draft.unit && draft.side) draft.unit = draft.side === "buy" ? "USDT" : symbol;
     // USDT is the trading currency; other currency names must not become a USDT budget.
-    if (/\b(?:demo\s*usd|dusd|usdc|usdg|dollars?|usd|eth|bnb)\b/i.test(input))
-      draft.unit = "unsupported";
+    if (/\b(?:demo\s*usd|dusd|usdc|usdg|eth|bnb)\b/i.test(input)) draft.unit = "unsupported";
     save(draft);
     if (!symbol) return text(`Which stock: ${mainnetStockChoices()}?`);
     if (!draft.side && !draft.amount && name === "preview_mainnet_stock_price")
