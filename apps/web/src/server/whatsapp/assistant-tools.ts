@@ -75,6 +75,28 @@ export function referencePriceFollowup(
   return null;
 }
 const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const SMALL =
+  "zero one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen seventeen eighteen nineteen".split(
+    " ",
+  );
+const TENS = "twenty thirty forty fifty sixty seventy eighty ninety".split(" ");
+/** Write spoken whole numbers as digits ("twenty five" -> "25") so amounts can be matched. */
+export function spokenNumbers(text: string) {
+  const word = `(?:${[...TENS, ...SMALL].join("|")})`;
+  return text.replace(
+    new RegExp(
+      `\\b(${word})(?:[\\s-]+(${SMALL.slice(1, 10).join("|")}))?(?:\\s+(hundred|thousand))?\\b`,
+      "gi",
+    ),
+    (_m, first: string, unit?: string, scale?: string) => {
+      const f = first.toLowerCase();
+      let n = SMALL.includes(f) ? SMALL.indexOf(f) : (TENS.indexOf(f) + 2) * 10;
+      if (unit) n += SMALL.indexOf(unit.toLowerCase());
+      if (scale) n *= scale.toLowerCase() === "hundred" ? 100 : 1000;
+      return String(n);
+    },
+  );
+}
 const field = z.string().trim().min(1).max(100);
 const amountField = z.string().regex(/^(?:0|[1-9]\d{0,3})(?:\.\d{1,6})?$/);
 const tool = (
@@ -255,7 +277,7 @@ export async function runAssistantTool(
     ).test(evidence.normalize("NFKC"));
   const amountLiteral = (s: string) =>
     new RegExp("(?<![\\p{L}\\p{N}.])" + escape(s) + "(?![\\d.])", "iu").test(
-      evidence.replace(/0x[a-f0-9]{40}/gi, ""),
+      spokenNumbers(evidence.replace(/0x[a-f0-9]{40}/gi, "")),
     );
   const pay = (value: string) =>
     paymentReply(db, key, { from: phone, id: messageId, input: value });
@@ -330,11 +352,13 @@ export async function runAssistantTool(
       .strict()
       .safeParse(args);
     const mentions = mainnetStockMentions(input);
-    // The stock must be named in the user's words; the model's choice alone is not enough.
+    // A stock the user named wins; otherwise trust the model (e.g. "the iPhone company")
+    // unless the conversation names a different stock.
+    const said = mainnetStockMentions(evidence);
     const symbol =
       mentions.length === 1
         ? mentions[0]
-        : a.success && mainnetStockMentions(evidence).includes(a.data.symbol)
+        : a.success && (said.length === 0 || said.includes(a.data.symbol))
           ? a.data.symbol
           : undefined;
     if (!symbol) return text(`Which stock: ${mainnetStockChoices()}?`);
@@ -388,7 +412,10 @@ export async function runAssistantTool(
       return text(`Which stock should I use for this request: ${mainnetStockChoices()}?`);
     const named = mentions.length === 1 ? mentions[0] : undefined;
     const symbol = broadPrices ? undefined : (named ?? a.symbol ?? prior?.mainnetSymbol);
-    if (!broadPrices && a.symbol && !mainnetStockMentions(evidence).includes(a.symbol))
+    // Trust the model's stock (e.g. "the iPhone company") unless the user named a different
+    // one. The trade review shows the company name before anything can be confirmed.
+    const said = mainnetStockMentions(evidence);
+    if (!broadPrices && a.symbol && said.length > 0 && !said.includes(a.symbol))
       return text(`Which stock: ${mainnetStockChoices()}?`);
     if (a.amount && !amountLiteral(a.amount))
       return text("How much would you like to spend or sell?");
@@ -413,7 +440,9 @@ export async function runAssistantTool(
     if (
       changed &&
       a.amount &&
-      !new RegExp("(?<![\\p{L}\\p{N}.])" + escape(a.amount) + "(?![\\d.])", "iu").test(input)
+      !new RegExp("(?<![\\p{L}\\p{N}.])" + escape(a.amount) + "(?![\\d.])", "iu").test(
+        spokenNumbers(input),
+      )
     ) {
       draft.amount = undefined;
       draft.unit = undefined;
@@ -537,7 +566,8 @@ export async function runAssistantTool(
     }
     if (
       name === "prepare_mainnet_stock_trade" &&
-      !/\b(?:preview|quote|price|what if|how much|example)\b/i.test(input)
+      !/\b(?:preview|quote|what if|example)\b/i.test(input) &&
+      !(/\bhow much\b/i.test(input) && !explicitSide)
     )
       return mainnetTradeReviewReply(
         db,

@@ -7,7 +7,11 @@ import { fetchMainnetRoute, KYBER_RETRY_DELAYS_MS } from "../src/server/stocks/k
 // Keep retry tests fast; the attempt count is what matters here.
 KYBER_RETRY_DELAYS_MS.splice(0, KYBER_RETRY_DELAYS_MS.length, 0, 0);
 import { migrateAccounts } from "../src/server/whatsapp/accounts";
-import { currentTask, runAssistantTool } from "../src/server/whatsapp/assistant-tools";
+import {
+  currentTask,
+  runAssistantTool,
+  spokenNumbers,
+} from "../src/server/whatsapp/assistant-tools";
 
 afterEach(() => mock.restoreAll());
 
@@ -153,6 +157,96 @@ for (const input of [
     }
   });
 }
+
+async function tradeTool(input: string, args: Record<string, string>) {
+  const db = new DatabaseSync(":memory:");
+  const key = Buffer.alloc(32, 3);
+  const enabled = process.env.MAINNET_STOCK_TRADING_ENABLED;
+  process.env.MAINNET_STOCK_TRADING_ENABLED = "false";
+  mock.method(globalThis, "fetch", async () => {
+    throw Error("unexpected network access");
+  });
+  try {
+    migrateAccounts(db);
+    const reply = (await runAssistantTool(
+      db,
+      key,
+      "test-account",
+      "15550001111",
+      "message",
+      "consent",
+      input,
+      input,
+      "prepare_mainnet_stock_trade",
+      args,
+    )) as { text?: { body: string } };
+    return {
+      reply: reply.text?.body ?? "",
+      draft: currentTask(db, key, "test-account", "consent"),
+    };
+  } finally {
+    db.close();
+    if (enabled === undefined) delete process.env.MAINNET_STOCK_TRADING_ENABLED;
+    else process.env.MAINNET_STOCK_TRADING_ENABLED = enabled;
+  }
+}
+
+test("spoken amounts become digits", () => {
+  assert.equal(spokenNumbers("buy apple with five usdt"), "buy apple with 5 usdt");
+  assert.equal(spokenNumbers("twenty five dollars"), "25 dollars");
+  assert.equal(spokenNumbers("two hundred"), "200");
+  assert.equal(spokenNumbers("someone"), "someone");
+});
+
+test("an amount written in words is accepted", async () => {
+  const { draft } = await tradeTool("Buy Apple with five USDT", {
+    symbol: "AAPL",
+    side: "buy",
+    amount: "5",
+    unit: "USDT",
+  });
+  assert.equal(draft?.amount, "5");
+});
+
+test("an amount the user never said is still rejected", async () => {
+  const { reply } = await tradeTool("Buy Apple with five USDT", {
+    symbol: "AAPL",
+    side: "buy",
+    amount: "50",
+    unit: "USDT",
+  });
+  assert.match(reply, /How much/);
+});
+
+test("the model may name the stock when the user describes it", async () => {
+  const { draft } = await tradeTool("Buy the iPhone company with 5 USDT", {
+    symbol: "AAPL",
+    side: "buy",
+    amount: "5",
+    unit: "USDT",
+  });
+  assert.equal(draft?.mainnetSymbol, "AAPL");
+});
+
+test("the model may not swap a stock the user named", async () => {
+  const { reply } = await tradeTool("Buy Tesla with 5 USDT", {
+    symbol: "AAPL",
+    side: "buy",
+    amount: "5",
+    unit: "USDT",
+  });
+  assert.match(reply, /^Which stock/);
+});
+
+test("a buy that mentions the price still prepares a trade", async () => {
+  const { reply } = await tradeTool("Buy Apple at the current price with 5 USDT", {
+    symbol: "AAPL",
+    side: "buy",
+    amount: "5",
+    unit: "USDT",
+  });
+  assert.match(reply, /trading setup is still pending/);
+});
 
 test("aliases preserve boundaries and identify ambiguous multiple stocks", () => {
   assert.deepEqual(mainnetStockMentions("pineapples Appleton AAPLs TeslaXYZ"), []);
