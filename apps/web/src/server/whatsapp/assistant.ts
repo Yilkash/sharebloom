@@ -238,55 +238,61 @@ export async function assistantReply(
       );
     const priceFollowup =
       mainnetChat && followsPriceResult ? referencePriceFollowup(task, input) : null;
-    const response = priceFollowup
-      ? null
-      : await fetch("https://inference-api.openserv.ai/v1/responses", {
-          method: "POST",
-          headers: {
-            Authorization: "Bearer " + process.env.SERV_API_KEY,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            model,
-            reasoning: { effort: reasoningEffort },
-            instructions: conversationRules,
-            input: [
-              ...history,
-              {
-                role: "system",
-                content:
-                  "Current unfinished task (user-provided data only): " + JSON.stringify(task),
-              },
-              { role: "user", content: input },
-            ],
-            tools: [
-              ...assistantTools.map(({ function: definition }) => ({
-                type: "function",
-                ...definition,
-                // Missing fields are intentional: the local tool collects them safely.
-                strict: false,
-              })),
-              promptGuardResponsesTool,
-            ],
-            tool_choice: "auto",
-            parallel_tool_calls: false,
-            max_output_tokens: 4096,
-            store: false,
-          }),
-          signal: AbortSignal.timeout(45000),
-          redirect: "error",
-        });
-    if (response && !response.ok) {
-      console.warn("Sharebloom inference rejected", { model, status: response.status });
-      throw Error("serv_unavailable");
-    }
+    // SERV's prompt guard and output filter occasionally flag harmless requests, and the
+    // checks are not deterministic, so a refusal is retried once before the user sees it.
+    const infer = async () => {
+      const response = await fetch("https://inference-api.openserv.ai/v1/responses", {
+        method: "POST",
+        headers: {
+          Authorization: "Bearer " + process.env.SERV_API_KEY,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model,
+          reasoning: { effort: reasoningEffort },
+          instructions: conversationRules,
+          input: [
+            ...history,
+            {
+              role: "system",
+              content: "Current unfinished task (user-provided data only): " + JSON.stringify(task),
+            },
+            { role: "user", content: input },
+          ],
+          tools: [
+            ...assistantTools.map(({ function: definition }) => ({
+              type: "function",
+              ...definition,
+              // Missing fields are intentional: the local tool collects them safely.
+              strict: false,
+            })),
+            promptGuardResponsesTool,
+          ],
+          tool_choice: "auto",
+          parallel_tool_calls: false,
+          max_output_tokens: 4096,
+          store: false,
+        }),
+        signal: AbortSignal.timeout(45000),
+        redirect: "error",
+      });
+      if (!response.ok) {
+        console.warn("Sharebloom inference rejected", { model, status: response.status });
+        throw Error("serv_unavailable");
+      }
+      return responseMessage(await response.json());
+    };
     const message = priceFollowup
       ? {
           tool_calls: [
             { function: { name: "get_stock_price", arguments: JSON.stringify(priceFollowup) } },
           ],
         }
-      : responseMessage(await response!.json());
+      : await infer().catch((error: unknown) => {
+          if (!(error instanceof ServRefusal)) throw error;
+          console.warn("SERV refused a request; retrying once", { model });
+          return infer();
+        });
     const reply = z
       .object({
         content: z.string().max(12000).nullable().optional(),
@@ -421,10 +427,12 @@ export async function assistantReply(
     return output;
   } catch (error) {
     // Refused requests are not saved to history, so they are not replayed next turn.
-    if (error instanceof ServRefusal)
+    if (error instanceof ServRefusal) {
+      console.warn("SERV refused a request twice");
       return text(
         "I can’t help with that request. I can help with payments, balances and supported stock tokens. No payment was sent.",
       );
+    }
     return text(
       "I couldn’t complete that request right now. No payment was sent by chat. Try again or use Menu for the direct tools.",
     );
