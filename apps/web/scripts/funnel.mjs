@@ -22,8 +22,12 @@ const all = (sql, ...args) => db.prepare(sql).all(...args);
 const has = (table) =>
   Boolean(db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?").get(table));
 
-const wallets = has("wa_mainnet_wallets") ? all("SELECT account_id, address FROM wa_mainnet_wallets") : [];
-const skip = new Set(wallets.filter((w) => exclude.has(w.address.toLowerCase())).map((w) => w.account_id));
+const wallets = has("wa_mainnet_wallets")
+  ? all("SELECT account_id, address FROM wa_mainnet_wallets")
+  : [];
+const skip = new Set(
+  wallets.filter((w) => exclude.has(w.address.toLowerCase())).map((w) => w.account_id),
+);
 const keep = (rows) => rows.filter((r) => !skip.has(r.account_id ?? r.id));
 
 const accounts = keep(all("SELECT id, created FROM wa_accounts WHERE status='active'"));
@@ -72,7 +76,9 @@ const askers = has("wa_assistant_requests")
   ? new Set(keep(all("SELECT account_id FROM wa_assistant_requests")).map((r) => r.account_id))
   : new Set();
 const countBy = (rows, key) =>
-  Object.entries(rows.reduce((m, r) => ((m[r[key] ?? "none"] = (m[r[key] ?? "none"] || 0) + 1), m), {}))
+  Object.entries(
+    rows.reduce((m, r) => ((m[r[key] ?? "none"] = (m[r[key] ?? "none"] || 0) + 1), m), {}),
+  )
     .sort((a, b) => b[1] - a[1])
     .map(([k, n]) => `${k}: ${n}`)
     .join(", ") || "none";
@@ -80,16 +86,27 @@ const since = (ms) => accounts.filter((a) => a.created > Date.now() - ms).length
 
 console.log(`Sharebloom funnel (excluding ${skip.size} team wallet${skip.size === 1 ? "" : "s"})`);
 console.log("");
-console.log(`Accounts created            ${accounts.length}   (last 24h: ${since(DAY)}, last 7 days: ${since(7 * DAY)})`);
+console.log(
+  `Accounts created            ${accounts.length}   (last 24h: ${since(DAY)}, last 7 days: ${since(7 * DAY)})`,
+);
 console.log(`  with a wallet             ${userWallets.length}`);
 console.log(`  talked to the AI          ${[...askers].filter((a) => ids.has(a)).length}`);
-console.log(`  deposited anything        ${funded}${unreadable ? `   (${unreadable} wallet(s) could not be read)` : ""}`);
+console.log(
+  `  deposited anything        ${funded}${unreadable ? `   (${unreadable} wallet(s) could not be read)` : ""}`,
+);
 console.log(`  hold USDT now             ${holdsUsdt}`);
-console.log(`  got the BNB gas gift      ${gifts.filter((g) => g.state === "confirmed").length}   (all gift rows: ${countBy(gifts, "state")})`);
+console.log(
+  `  got the BNB gas gift      ${gifts.filter((g) => g.state === "confirmed").length}   (all gift rows: ${countBy(gifts, "state")})`,
+);
 console.log(`  opened a trade review     ${reviewers.size}`);
 console.log(`  completed a trade         ${traders.size}`);
 console.log(`  sent a transaction        ${usedWallet}`);
 console.log("");
 console.log(`Trade reviews by outcome    ${countBy(orders, "state")}`);
-console.log(`Stopped trades by reason    ${countBy(orders.filter((o) => o.error), "error")}`);
+console.log(
+  `Stopped trades by reason    ${countBy(
+    orders.filter((o) => o.error),
+    "error",
+  )}`,
+);
 db.close();

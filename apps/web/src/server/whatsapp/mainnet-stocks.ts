@@ -1,4 +1,5 @@
 import { ensureMainnetWallet } from "../stocks/mainnet-wallet";
+import { gasTopupConfig } from "../stocks/gas-topup";
 import { mainnetWallet } from "../stocks/mainnet-orders";
 import type { DatabaseSync } from "node:sqlite";
 import { formatEther, formatUnits, getAddress } from "viem";
@@ -240,7 +241,13 @@ export async function mainnetReceiveReply(db: DatabaseSync, account: string) {
   try {
     const wallet = await ensureMainnetWallet(db, account);
     return text(
-      `Your ${MAINNET_NETWORK_NAME} funding address\n\n${wallet.address}\n\n${MAINNET_NETWORK_NAME} (chain ${MAINNET_CHAIN_ID}) only.\nSend ${MAINNET_QUOTE.symbol} (BEP-20) for purchases and a little ${MAINNET_NATIVE_SYMBOL} for network fees.\n${mainnetTradingMessage()}`,
+      `💵 *How to add money*\n\nSend *USDT on BNB Chain (BEP-20)* to your Sharebloom wallet:\n\n${wallet.address}\n\n` +
+        (gasTopupConfig()
+          ? `🎁 *No BNB needed.* After you add at least 1 USDT, your first trade request gets a little BNB from us to cover network fees.\n\n`
+          : `Also send a little BNB (about $0.10) for network fees.\n\n`) +
+        `*Don’t have USDT yet?* Buy it on an exchange or peer-to-peer, then withdraw it to the address above and choose the *BNB Smart Chain (BEP-20)* network.\n\n` +
+        `⚠️ Only BNB Chain (chain ${MAINNET_CHAIN_ID}). Other networks can lose your money.\n` +
+        `Start small: 2 USDT is enough. Then say “Buy Apple with 1 USDT”.\n${mainnetTradingMessage()}`,
     );
   } catch (error) {
     const code = error instanceof Error ? error.message : "";

@@ -302,7 +302,10 @@ export default function Landing() {
 
         <section className={styles.final}>
           <h2>Your first stock is one message away.</h2>
-          <p>Say hi, create your account, add a little USDT and BNB, and start owning.</p>
+          <p>
+            Say hi, create your account, add a few USDT, and start owning. We cover your first
+            network fees.
+          </p>
           <a className={styles.primary} href={WHATSAPP}>
             <MessageCircle size={18} /> Chat with Sharebloom
           </a>
