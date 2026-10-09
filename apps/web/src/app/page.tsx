@@ -10,7 +10,6 @@ import {
   Timer,
   Wallet,
 } from "lucide-react";
-import { publicStats } from "@/server/public-stats";
 import { MAINNET_STOCK_SYMBOLS } from "@/server/networks/chain";
 import styles from "./landing.module.css";
 import { ThemeToggle } from "./theme-toggle";
@@ -100,7 +99,6 @@ const proof = [
 ];
 
 export default function Landing() {
-  const stats = publicStats();
   return (
     <div className={styles.page}>
       <header className={styles.nav}>
@@ -160,14 +158,6 @@ export default function Landing() {
         </section>
 
         <section className={styles.stats} aria-label="Sharebloom at a glance">
-          {stats && (
-            <>
-              <div>
-                <b>{stats.confirmed}</b>
-                <span>confirmed trades and payments on BNB Chain</span>
-              </div>
-            </>
-          )}
           <div>
             <b>{MAINNET_STOCK_SYMBOLS.length}</b>
             <span>stocks and ETFs, from Apple to the S&amp;P 500</span>
